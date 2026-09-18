@@ -73,3 +73,195 @@ describe('superTopUp (sheet F9/F19 planner)', () => {
     expect(r.saving).toBe(5520 + Math.ceil(50000 * 0.02) - r.newBill);
   });
 });
+
+describe('tax service (sheet numbers)', () => {
+  function mockFinance() {
+    const store: Record<string, Array<Record<string, unknown>>> = {};
+    let seq = 1;
+    const table = (name: string) => ({
+      find: async (q: Record<string, unknown> = {}) => {
+        const rows = store[name] ?? [];
+        return rows.filter((r) =>
+          Object.entries(q).every(([k, v]) => r[k] === v),
+        );
+      },
+      insert: async (input: Record<string, unknown>) => {
+        const row = { id: seq++, ...input };
+        (store[name] ??= []).push(row);
+        return { id: row.id };
+      },
+      update: async (
+        filter: Record<string, unknown>,
+        patch: Record<string, unknown>,
+      ) => {
+        let n = 0;
+        for (const r of store[name] ?? []) {
+          if (Object.entries(filter).every(([k, v]) => r[k] === v)) {
+            Object.assign(r, patch);
+            n += 1;
+          }
+        }
+        return { affected: n };
+      },
+      delete: async () => ({ affected: 0 }),
+      count: async () => (store[name] ?? []).length,
+    });
+    return { db: { table } };
+  }
+
+  async function seed(finance: any): Promise<void> {
+    await finance.db.table('taxflow_years').insert({
+      year_key: '2026-2027',
+      start_date: '2026-07-01',
+      end_date: '2027-06-30',
+      is_locked: false,
+    });
+    const brackets = [
+      { limit_from: 0, limit_to: 18200, base_amount: 0, rate: 0 },
+      { limit_from: 18201, limit_to: 45000, base_amount: 0, rate: 0.15 },
+      { limit_from: 45001, limit_to: 135000, base_amount: 4020, rate: 0.3 },
+      { limit_from: 135001, limit_to: 190000, base_amount: 31020, rate: 0.37 },
+      { limit_from: 190001, limit_to: null, base_amount: 51370, rate: 0.45 },
+    ];
+    for (const b of brackets) {
+      await finance.db
+        .table('taxflow_rates')
+        .insert({ year_key: '2026-2027', kind: 'bracket', ...b, label: null });
+    }
+    await finance.db.table('taxflow_rates').insert({
+      year_key: '2026-2027',
+      kind: 'medicare',
+      limit_from: 0,
+      limit_to: null,
+      base_amount: 0,
+      rate: 0.02,
+      label: null,
+    });
+    const single = [
+      { limit_from: 0, limit_to: 105000, rate: 0 },
+      { limit_from: 105001, limit_to: 123000, rate: 0.01 },
+      { limit_from: 123001, limit_to: 164000, rate: 0.0125 },
+      { limit_from: 164001, limit_to: null, rate: 0.015 },
+    ];
+    for (const t of single) {
+      await finance.db.table('taxflow_rates').insert({
+        year_key: '2026-2027',
+        kind: 'mls-single',
+        ...t,
+        base_amount: 0,
+        label: null,
+      });
+    }
+    const family = [
+      { limit_from: 0, limit_to: 210000, rate: 0 },
+      { limit_from: 210001, limit_to: 246000, rate: 0.01 },
+      { limit_from: 246001, limit_to: 328000, rate: 0.0125 },
+      { limit_from: 328001, limit_to: null, rate: 0.015 },
+    ];
+    for (const t of family) {
+      await finance.db.table('taxflow_rates').insert({
+        year_key: '2026-2027',
+        kind: 'mls-family',
+        ...t,
+        base_amount: 0,
+        label: null,
+      });
+    }
+    await finance.db.table('taxflow_income').insert({
+      year_key: '2026-2027',
+      item_key: 'wages',
+      amount: 13595.45,
+      withheld: 2899,
+    });
+    await finance.db.table('taxflow_income').insert({
+      year_key: '2026-2027',
+      item_key: 'interest',
+      amount: 5.94,
+      withheld: 0,
+    });
+    await finance.db.table('taxflow_deductions').insert({
+      year_key: '2026-2027',
+      item_key: 'work',
+      label: 'Internet',
+      cost: 1290,
+      work_percent: 40,
+    });
+    await finance.db.table('taxflow_spouse').insert({
+      year_key: '2026-2027',
+      spouse_income: 107331,
+      fringe_benefits: 16999,
+      super_amount: 0,
+      investment_losses: 0,
+      reportable_super: 0,
+      has_cover: false,
+      covered_days: 0,
+      children_count: 3,
+    });
+  }
+
+  it('getEstimate matches sheet math (taxable 13085.39, medicare 262, refund 2637)', async () => {
+    const { createTaxService } = await import('../src/services/tax-summary.js');
+    const finance = mockFinance();
+    await seed(finance);
+    const svc = createTaxService(finance);
+    expect(await svc.getEstimate({ yearKey: '2026-2027' })).toEqual({
+      income: 13601.39,
+      withheld: 2899,
+      deductions: 516,
+      taxable: 13085.39,
+      tax: 0,
+      medicare: 262,
+      mls: 0,
+      mlsTier: 'Base',
+      mlsRate: 0,
+      total: 262,
+      refund: 2637,
+    });
+  });
+
+  it('getEstimateWithSuper lowers the bill (extra 5000 -> refund 2737)', async () => {
+    const { createTaxService } = await import('../src/services/tax-summary.js');
+    const finance = mockFinance();
+    await seed(finance);
+    const svc = createTaxService(finance);
+    const e = (await svc.getEstimateWithSuper({
+      yearKey: '2026-2027',
+      extraSuper: 5000,
+    })) as { taxable: number; refund: number };
+    expect(e.taxable).toBe(8085.39);
+    expect(e.refund).toBe(2737);
+  });
+
+  it('getMls returns the base tier for low combined income', async () => {
+    const { createTaxService } = await import('../src/services/tax-summary.js');
+    const finance = mockFinance();
+    await seed(finance);
+    const svc = createTaxService(finance);
+    expect(await svc.getMls({ yearKey: '2026-2027' })).toEqual({
+      tier: 'Base',
+      rate: 0,
+      amount: 0,
+    });
+  });
+
+  it('family MLS charges tier 1 on high combined income (no cover, 3 kids)', async () => {
+    const { createTaxService } = await import('../src/services/tax-summary.js');
+    const finance = mockFinance();
+    await seed(finance);
+    await finance.db
+      .table('taxflow_spouse')
+      .update({ year_key: '2026-2027' }, { spouse_income: 200000 });
+    const svc = createTaxService(finance);
+    expect(await svc.getMls({ yearKey: '2026-2027' })).toEqual({
+      tier: 'Tier 1',
+      rate: 0.01,
+      amount: 2301,
+    });
+  });
+
+  it('returns null for an empty year', async () => {
+    const { createTaxService } = await import('../src/services/tax-summary.js');
+    const svc = createTaxService(mockFinance());
+    expect(await svc.getEstimate({ yearKey: '2026-2027' })).toBeNull();
+  });
+});
