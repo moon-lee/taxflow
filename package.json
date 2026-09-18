@@ -10,86 +10,328 @@
     "version": "0.1.0",
     "description": "Australian income tax summary with per-year rates",
     "themeColor": "#43A047",
-    "activationEvents": ["onStartup", "onView:taxflow"],
+    "activationEvents": [
+      "onStartup",
+      "onView:taxflow"
+    ],
     "contributions": {
-      "views": [{ "id": "taxflow", "name": "Tax Flow", "icon": "assets/icon.svg" }],
+      "views": [
+        {
+          "id": "taxflow",
+          "name": "Tax Flow",
+          "icon": "assets/icon.svg"
+        }
+      ],
       "commands": [
-        { "id": "taxflow.show-summary", "title": "Tax Summary" },
-        { "id": "taxflow.show-rates", "title": "Tax Rates" }
+        {
+          "id": "taxflow.show-summary",
+          "title": "Tax Summary"
+        },
+        {
+          "id": "taxflow.show-rates",
+          "title": "Tax Rates"
+        }
       ],
       "navigation": [
-        { "id": "taxflow-summary", "label": "Tax Summary", "command": "taxflow.show-summary", "group": "Tax Flow" },
-        { "id": "taxflow-rates", "label": "Tax Rates", "command": "taxflow.show-rates", "group": "Tax Flow" }
+        {
+          "id": "taxflow-summary",
+          "label": "Tax Summary",
+          "command": "taxflow.show-summary",
+          "group": "Tax Flow"
+        },
+        {
+          "id": "taxflow-rates",
+          "label": "Tax Rates",
+          "command": "taxflow.show-rates",
+          "group": "Tax Flow"
+        }
       ],
       "configuration": [
-        { "key": "taxflow.themeColor", "type": "string", "label": "Accent color (hex).", "default": "#43A047", "pattern": "^#[0-9A-Fa-f]{6}$", "formatHint": "#RRGGBB", "placeholder": "#43A047" }
+        {
+          "key": "taxflow.themeColor",
+          "type": "string",
+          "label": "Accent color (hex).",
+          "default": "#43A047",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "formatHint": "#RRGGBB",
+          "placeholder": "#43A047"
+        }
       ],
-      "allowedCommands": ["taxflow.show-summary", "taxflow.show-rates"],
-      "allowedUiEvents": ["year-copy", "year-lock", "rates-save", "income-save", "deduction-create", "deduction-edit", "deduction-delete", "item-create", "item-deactivate", "spouse-save", "card-order-change"]
+      "allowedCommands": [
+        "taxflow.show-summary",
+        "taxflow.show-rates"
+      ],
+      "allowedUiEvents": [
+        "year-copy",
+        "year-lock",
+        "rates-save",
+        "income-save",
+        "deduction-create",
+        "deduction-edit",
+        "deduction-delete",
+        "item-create",
+        "item-deactivate",
+        "spouse-save",
+        "card-order-change"
+      ]
     },
     "tables": [
       {
         "name": "taxflow_years",
         "columns": [
-          { "name": "year_key", "type": "text", "nullable": false, "description": "e.g. 2026-2027" },
-          { "name": "start_date", "type": "date", "nullable": false },
-          { "name": "end_date", "type": "date", "nullable": false },
-          { "name": "is_locked", "type": "boolean", "nullable": false, "default": false }
+          {
+            "name": "year_key",
+            "type": "text",
+            "nullable": false,
+            "description": "e.g. 2026-2027"
+          },
+          {
+            "name": "start_date",
+            "type": "date",
+            "nullable": false
+          },
+          {
+            "name": "end_date",
+            "type": "date",
+            "nullable": false
+          },
+          {
+            "name": "is_locked",
+            "type": "boolean",
+            "nullable": false,
+            "default": false
+          }
         ]
       },
       {
         "name": "taxflow_rates",
         "columns": [
-          { "name": "year_key", "type": "text", "nullable": false, "index": true },
-          { "name": "kind", "type": "text", "nullable": false, "enumOptions": ["bracket", "medicare", "mls-single", "mls-family", "link"] },
-          { "name": "limit_from", "type": "real", "nullable": false, "default": 0, "min": 0 },
-          { "name": "limit_to", "type": "real", "nullable": true, "min": 0, "description": "NULL = no top" },
-          { "name": "base_amount", "type": "real", "nullable": false, "default": 0, "min": 0 },
-          { "name": "rate", "type": "real", "nullable": false, "default": 0, "min": 0 },
-          { "name": "label", "type": "text", "nullable": true, "description": "Link URL when kind=link, else display note" }
+          {
+            "name": "year_key",
+            "type": "text",
+            "nullable": false,
+            "index": true
+          },
+          {
+            "name": "kind",
+            "type": "text",
+            "nullable": false,
+            "enumOptions": [
+              "bracket",
+              "medicare",
+              "mls-single",
+              "mls-family",
+              "link"
+            ]
+          },
+          {
+            "name": "limit_from",
+            "type": "real",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "name": "limit_to",
+            "type": "real",
+            "nullable": true,
+            "min": 0,
+            "description": "NULL = no top"
+          },
+          {
+            "name": "base_amount",
+            "type": "real",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "name": "rate",
+            "type": "real",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "name": "label",
+            "type": "text",
+            "nullable": true,
+            "description": "Link URL when kind=link, else display note"
+          }
         ]
       },
       {
         "name": "taxflow_item_types",
         "columns": [
-          { "name": "item_key", "type": "text", "nullable": false, "description": "Stable key e.g. wages" },
-          { "name": "label", "type": "text", "nullable": false },
-          { "name": "group", "type": "text", "nullable": false, "enumOptions": ["income", "deduction", "offset"] },
-          { "name": "sort_order", "type": "integer", "nullable": false, "default": 0, "min": 0 },
-          { "name": "is_active", "type": "boolean", "nullable": false, "default": true }
+          {
+            "name": "item_key",
+            "type": "text",
+            "nullable": false,
+            "description": "Stable key e.g. wages"
+          },
+          {
+            "name": "label",
+            "type": "text",
+            "nullable": false
+          },
+          {
+            "name": "group",
+            "type": "text",
+            "nullable": false,
+            "enumOptions": [
+              "income",
+              "deduction",
+              "offset"
+            ]
+          },
+          {
+            "name": "sort_order",
+            "type": "integer",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "name": "is_active",
+            "type": "boolean",
+            "nullable": false,
+            "default": true
+          }
         ]
       },
       {
         "name": "taxflow_income",
         "columns": [
-          { "name": "year_key", "type": "text", "nullable": false, "index": true },
-          { "name": "item_key", "type": "text", "nullable": false, "description": "FK to taxflow_item_types (group=income)" },
-          { "name": "amount", "type": "real", "nullable": false, "default": 0, "min": 0 },
-          { "name": "withheld", "type": "real", "nullable": false, "default": 0, "min": 0 }
+          {
+            "name": "year_key",
+            "type": "text",
+            "nullable": false,
+            "index": true
+          },
+          {
+            "name": "item_key",
+            "type": "text",
+            "nullable": false,
+            "description": "FK to taxflow_item_types (group=income)"
+          },
+          {
+            "name": "amount",
+            "type": "real",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "name": "withheld",
+            "type": "real",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          }
         ]
       },
       {
         "name": "taxflow_deductions",
         "columns": [
-          { "name": "year_key", "type": "text", "nullable": false, "index": true },
-          { "name": "item_key", "type": "text", "nullable": false, "description": "FK to taxflow_item_types (group=deduction)" },
-          { "name": "label", "type": "text", "nullable": false },
-          { "name": "cost", "type": "real", "nullable": false, "default": 0, "min": 0 },
-          { "name": "work_percent", "type": "real", "nullable": false, "default": 100, "min": 0, "max": 100 }
+          {
+            "name": "year_key",
+            "type": "text",
+            "nullable": false,
+            "index": true
+          },
+          {
+            "name": "item_key",
+            "type": "text",
+            "nullable": false,
+            "description": "FK to taxflow_item_types (group=deduction)"
+          },
+          {
+            "name": "label",
+            "type": "text",
+            "nullable": false
+          },
+          {
+            "name": "cost",
+            "type": "real",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "name": "work_percent",
+            "type": "real",
+            "nullable": false,
+            "default": 100,
+            "min": 0,
+            "max": 100
+          }
         ]
       },
       {
         "name": "taxflow_spouse",
         "columns": [
-          { "name": "year_key", "type": "text", "nullable": false, "index": true },
-          { "name": "spouse_income", "type": "real", "nullable": false, "default": 0, "min": 0 },
-          { "name": "fringe_benefits", "type": "real", "nullable": false, "default": 0, "min": 0 },
-          { "name": "super_amount", "type": "real", "nullable": false, "default": 0, "min": 0 },
-          { "name": "investment_losses", "type": "real", "nullable": false, "default": 0, "min": 0 },
-          { "name": "reportable_super", "type": "real", "nullable": false, "default": 0, "min": 0 },
-          { "name": "has_cover", "type": "boolean", "nullable": false, "default": true },
-          { "name": "covered_days", "type": "integer", "nullable": false, "default": 365, "min": 0, "max": 366 },
-          { "name": "children_count", "type": "integer", "nullable": false, "default": 0, "min": 0 }
+          {
+            "name": "year_key",
+            "type": "text",
+            "nullable": false,
+            "index": true
+          },
+          {
+            "name": "spouse_income",
+            "type": "real",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "name": "fringe_benefits",
+            "type": "real",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "name": "super_amount",
+            "type": "real",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "name": "investment_losses",
+            "type": "real",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "name": "reportable_super",
+            "type": "real",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "name": "has_cover",
+            "type": "boolean",
+            "nullable": false,
+            "default": true
+          },
+          {
+            "name": "covered_days",
+            "type": "integer",
+            "nullable": false,
+            "default": 365,
+            "min": 0,
+            "max": 366
+          },
+          {
+            "name": "children_count",
+            "type": "integer",
+            "nullable": false,
+            "default": 0,
+            "min": 0
+          }
         ]
       }
     ],
@@ -98,12 +340,14 @@
   "scripts": {
     "dev": "vite",
     "build": "node D:/finance_flow_ai/scripts/sdk/cli.mjs build .",
+    "test": "vitest run",
     "version:bump": "node scripts/version-bump.mjs",
     "release": "node scripts/version-bump.mjs && node D:/finance_flow_ai/scripts/sdk/cli.mjs build ."
   },
   "devDependencies": {
+    "typescript": "^5.5.0",
     "vite": "^5.4.0",
-    "typescript": "^5.5.0"
+    "vitest": "^2.1.9"
   },
   "dependencies": {
     "lit": "^3.1.0"
