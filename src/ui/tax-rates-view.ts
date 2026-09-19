@@ -212,11 +212,14 @@ export class TaxRatesView extends Base {
             <div class="section-header">
               <h3 class="section-title">Years</h3>
             </div>
-            ${this.years.map((y) => html`<div class="tax-row"><span>${y.year_key} (${y.start_date} – ${y.end_date})</span><span class="num">${y.is_locked ? 'locked' : 'open'}</span></div>`)}
+            ${this.years.map((y) => html`<div class="tax-row"><span>${y.year_key} (${y.start_date} – ${y.end_date})</span><span class="pill ${y.is_locked ? 'locked' : 'open'}">${y.is_locked ? 'locked' : 'open'}</span></div>`)}
             ${
               this.locked
                 ? ''
-                : html`<form @submit=${(e: Event) => this.copyYear(e)}>
+                : html`<form
+                    class="tax-form"
+                    @submit=${(e: Event) => this.copyYear(e)}
+                  >
                     <label
                       >New year
                       <input name="year_key" placeholder="2027-2028" required
@@ -247,11 +250,40 @@ export class TaxRatesView extends Base {
             <div class="section-header">
               <h3 class="section-title">Tax brackets</h3>
             </div>
-            ${brackets.map((r) => html`<div class="tax-row"><span>$${this.money(r.limit_from)} – ${r.limit_to === null ? '∞' : '$' + this.money(r.limit_to)} @ ${(Number(r.rate) * 100).toFixed(1)}%</span><span class="num">base $${this.money(r.base_amount)}</span></div>`)}
+            <div class="table-wrap">
+              <table class="tax-table">
+                <thead>
+                  <tr>
+                    <th>From</th>
+                    <th>To</th>
+                    <th class="num">Rate</th>
+                    <th class="num">Base</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${brackets.map(
+                    (r) =>
+                      html`<tr>
+                        <td>$${this.money(r.limit_from)}</td>
+                        <td>
+                          ${r.limit_to === null ? '∞' : '$' + this.money(r.limit_to)}
+                        </td>
+                        <td class="num">
+                          ${(Number(r.rate) * 100).toFixed(1)}%
+                        </td>
+                        <td class="num">$${this.money(r.base_amount)}</td>
+                      </tr>`,
+                  )}
+                </tbody>
+              </table>
+            </div>
             ${
               this.locked
                 ? ''
-                : html`<form @submit=${(e: Event) => this.saveBracket(e)}>
+                : html`<form
+                    class="tax-form"
+                    @submit=${(e: Event) => this.saveBracket(e)}
+                  >
                     <label
                       >From <input name="from" type="number" min="0" required
                     /></label>
@@ -290,7 +322,10 @@ export class TaxRatesView extends Base {
             ${
               this.locked
                 ? ''
-                : html`<form @submit=${(e: Event) => this.saveMedicare(e)}>
+                : html`<form
+                    class="tax-form"
+                    @submit=${(e: Event) => this.saveMedicare(e)}
+                  >
                     <label
                       >Rate (0.02 = 2%)
                       <input
@@ -311,11 +346,36 @@ export class TaxRatesView extends Base {
             <div class="section-header">
               <h3 class="section-title">MLS tiers (single)</h3>
             </div>
-            ${mlsSingle.map((r) => html`<div class="tax-row"><span>$${this.money(r.limit_from)} – ${r.limit_to === null ? '∞' : '$' + this.money(r.limit_to)}</span><span class="num">${(Number(r.rate) * 100).toFixed(2)}%</span></div>`)}
+            <div class="table-wrap">
+              <table class="tax-table">
+                <thead>
+                  <tr>
+                    <th>From</th>
+                    <th>To</th>
+                    <th class="num">Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${mlsSingle.map(
+                    (r) =>
+                      html`<tr>
+                        <td>$${this.money(r.limit_from)}</td>
+                        <td>
+                          ${r.limit_to === null ? '∞' : '$' + this.money(r.limit_to)}
+                        </td>
+                        <td class="num">
+                          ${(Number(r.rate) * 100).toFixed(2)}%
+                        </td>
+                      </tr>`,
+                  )}
+                </tbody>
+              </table>
+            </div>
             ${
               this.locked
                 ? ''
                 : html`<form
+                    class="tax-form"
                     @submit=${(e: Event) => this.saveMls('mls-single', e)}
                   >
                     <label
@@ -344,11 +404,36 @@ export class TaxRatesView extends Base {
             <div class="section-header">
               <h3 class="section-title">MLS tiers (family)</h3>
             </div>
-            ${mlsFamily.map((r) => html`<div class="tax-row"><span>$${this.money(r.limit_from)} – ${r.limit_to === null ? '∞' : '$' + this.money(r.limit_to)}</span><span class="num">${(Number(r.rate) * 100).toFixed(2)}%</span></div>`)}
+            <div class="table-wrap">
+              <table class="tax-table">
+                <thead>
+                  <tr>
+                    <th>From</th>
+                    <th>To</th>
+                    <th class="num">Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${mlsFamily.map(
+                    (r) =>
+                      html`<tr>
+                        <td>$${this.money(r.limit_from)}</td>
+                        <td>
+                          ${r.limit_to === null ? '∞' : '$' + this.money(r.limit_to)}
+                        </td>
+                        <td class="num">
+                          ${(Number(r.rate) * 100).toFixed(2)}%
+                        </td>
+                      </tr>`,
+                  )}
+                </tbody>
+              </table>
+            </div>
             ${
               this.locked
                 ? ''
                 : html`<form
+                    class="tax-form"
                     @submit=${(e: Event) => this.saveMls('mls-family', e)}
                   >
                     <label
@@ -381,7 +466,10 @@ export class TaxRatesView extends Base {
             ${
               this.locked
                 ? ''
-                : html`<form @submit=${(e: Event) => this.saveLink(e)}>
+                : html`<form
+                    class="tax-form"
+                    @submit=${(e: Event) => this.saveLink(e)}
+                  >
                     <label
                       >URL
                       <input

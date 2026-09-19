@@ -447,6 +447,7 @@ export class TaxSummaryView extends Base {
                       (r) => r.item_key === it.item_key,
                     );
                     return html`<form
+                      class="tax-form"
                       @submit=${(e: Event) => this.saveIncome(it.item_key, e)}
                     >
                       <label
@@ -489,6 +490,7 @@ export class TaxSummaryView extends Base {
                       ? ''
                       : this.editingDeductionId === r.id
                         ? html`<form
+                            class="tax-form"
                             @submit=${(e: Event) => this.editDeduction(r.id, e)}
                           >
                             <label
@@ -520,6 +522,7 @@ export class TaxSummaryView extends Base {
                               Save
                             </button>
                             <button
+                              class="ghost"
                               type="button"
                               @click=${() => {
                                 this.editingDeductionId = null;
@@ -530,6 +533,7 @@ export class TaxSummaryView extends Base {
                             </button>
                           </form>`
                         : html`<button
+                              class="ghost"
                               @click=${() => {
                                 this.editingDeductionId = r.id;
                                 (this as any).requestUpdate();
@@ -537,7 +541,10 @@ export class TaxSummaryView extends Base {
                             >
                               Edit
                             </button>
-                            <button @click=${() => this.deleteDeduction(r.id)}>
+                            <button
+                              class="ghost"
+                              @click=${() => this.deleteDeduction(r.id)}
+                            >
                               Delete
                             </button>`
                   }`,
@@ -549,7 +556,10 @@ export class TaxSummaryView extends Base {
             ${
               this.locked
                 ? ''
-                : html`<form @submit=${(e: Event) => this.createDeduction(e)}>
+                : html`<form
+                    class="tax-form"
+                    @submit=${(e: Event) => this.createDeduction(e)}
+                  >
                     <label
                       >Type
                       <select name="item_key">
@@ -599,7 +609,10 @@ export class TaxSummaryView extends Base {
             ${
               this.locked
                 ? ''
-                : html`<form @submit=${(e: Event) => this.saveSpouse(e)}>
+                : html`<form
+                    class="tax-form"
+                    @submit=${(e: Event) => this.saveSpouse(e)}
+                  >
                     <label
                       >Income $
                       <input
@@ -645,7 +658,7 @@ export class TaxSummaryView extends Base {
                         step="0.01"
                         value=${String(s.reportable_super ?? 0)}
                     /></label>
-                    <label
+                    <label class="check-row"
                       ><input
                         name="has_cover"
                         type="checkbox"
@@ -685,35 +698,40 @@ export class TaxSummaryView extends Base {
               ><span class="num">${b.mls.toFixed(2)}</span>
             </div>
           </div>
-          <div class="section" style="order:${this.orderOf('result')}">
+          <div class="section span" style="order:${this.orderOf('result')}">
             <div class="section-header">
               <h3 class="section-title">Result</h3>
             </div>
-            <div class="tax-row">
-              <span>Taxable income</span
-              ><span class="num">${t.taxable.toFixed(2)}</span>
+            <div class="kpi-row">
+              <div class="kpi">
+                <div class="kpi-label">Taxable</div>
+                <div class="kpi-value">${t.taxable.toFixed(2)}</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Tax</div>
+                <div class="kpi-value">${b.tax.toFixed(2)}</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Medicare</div>
+                <div class="kpi-value">${b.medicare.toFixed(2)}</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Surcharge</div>
+                <div class="kpi-value">${b.mls.toFixed(2)}</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Withheld</div>
+                <div class="kpi-value">${t.withheld.toFixed(2)}</div>
+              </div>
             </div>
-            <div class="tax-row">
-              <span>Tax on income</span
-              ><span class="num">${b.tax.toFixed(2)}</span>
-            </div>
-            <div class="tax-row">
-              <span>Medicare levy</span
-              ><span class="num">${b.medicare.toFixed(2)}</span>
-            </div>
-            <div class="tax-row">
-              <span>Surcharge</span><span class="num">${b.mls.toFixed(2)}</span>
-            </div>
-            <div class="tax-row">
-              <span>Tax withheld</span
-              ><span class="num">${t.withheld.toFixed(2)}</span>
-            </div>
-            <div class="tax-row total">
-              <span>${b.result >= 0 ? 'Refund' : 'Owed'}</span
-              ><span class="num">${Math.abs(b.result).toFixed(2)}</span>
+            <div class="hero ${b.result >= 0 ? 'refund' : 'owed'}">
+              <div class="hero-value">${Math.abs(b.result).toFixed(2)}</div>
+              <div class="hero-caption">
+                ${b.result >= 0 ? 'Refund' : 'Amount owed'}
+              </div>
             </div>
           </div>
-          <div class="section" style="order:${this.orderOf('forecast')}">
+          <div class="section span" style="order:${this.orderOf('forecast')}">
             <div class="section-header">
               <h3 class="section-title">Forecast (guess)</h3>
             </div>
@@ -737,7 +755,7 @@ export class TaxSummaryView extends Base {
               >
             </div>
           </div>
-          <div class="section" style="order:${this.orderOf('planner')}">
+          <div class="section span" style="order:${this.orderOf('planner')}">
             <div class="section-header">
               <h3 class="section-title">Super top-up planner</h3>
             </div>
@@ -762,7 +780,7 @@ export class TaxSummaryView extends Base {
               ><span class="num">${plan.saving.toFixed(2)}</span>
             </div>
           </div>
-          <div class="section" style="order:99">
+          <div class="section span" style="order:99">
             <div class="section-header">
               <h3 class="section-title">Item types</h3>
             </div>
@@ -771,14 +789,17 @@ export class TaxSummaryView extends Base {
                 html`<div class="tax-row">
                   <span>${it.label} (${it.group})</span>
                   <span
-                    >${this.itemInUse(it.item_key) ? html`<span class="num">in use</span>` : html`<button @click=${() => this.deactivateItem(it.item_key)}>Deactivate</button>`}</span
+                    >${this.itemInUse(it.item_key) ? html`<span class="num">in use</span>` : html`<button class="ghost" @click=${() => this.deactivateItem(it.item_key)}>Deactivate</button>`}</span
                   >
                 </div>`,
             )}
             ${
               this.locked
                 ? ''
-                : html`<form @submit=${(e: Event) => this.createItem(e)}>
+                : html`<form
+                    class="tax-form"
+                    @submit=${(e: Event) => this.createItem(e)}
+                  >
                     <label
                       >Label
                       <input name="label" placeholder="Bank fees" required

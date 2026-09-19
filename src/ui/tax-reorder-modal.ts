@@ -62,34 +62,46 @@ export class TaxReorderModal extends Base {
   override render(): unknown {
     if (typeof HTMLElement === 'undefined' || !this.open) return html``;
     return html`
-      <div class="modal">
-        <div class="modal-inner">
+      <div class="backdrop">
+        <div class="modal">
           <h3>Reorder cards</h3>
           ${this.order.map(
             (tag, ix) =>
-              html`<div class="section-item">
+              html`<div class="tax-row">
                 <span>${CARD_LABELS[tag] ?? tag}</span>
-                <button @click=${() => this.move(ix, -1)} ?disabled=${ix === 0}>
-                  Up
-                </button>
-                <button
-                  @click=${() => this.move(ix, 1)}
-                  ?disabled=${ix === this.order.length - 1}
-                >
-                  Down
-                </button>
+                <span>
+                  <button
+                    class="ghost"
+                    @click=${() => this.move(ix, -1)}
+                    ?disabled=${ix === 0}
+                  >
+                    Up
+                  </button>
+                  <button
+                    class="ghost"
+                    @click=${() => this.move(ix, 1)}
+                    ?disabled=${ix === this.order.length - 1}
+                  >
+                    Down
+                  </button>
+                </span>
               </div>`,
           )}
-          <button class="btn-primary" @click=${() => this.save()}>Save</button>
-          <button @click=${() => this.reset()}>Reset</button>
-          <button
-            @click=${() => {
-              this.open = false;
-              (this as any).requestUpdate?.();
-            }}
-          >
-            Cancel
-          </button>
+          <div class="modal-actions">
+            <button class="ghost" @click=${() => this.reset()}>Reset</button>
+            <button
+              class="ghost"
+              @click=${() => {
+                this.open = false;
+                (this as any).requestUpdate?.();
+              }}
+            >
+              Cancel
+            </button>
+            <button class="btn-primary" @click=${() => this.save()}>
+              Save
+            </button>
+          </div>
         </div>
       </div>
     `;
