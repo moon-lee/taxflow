@@ -24,10 +24,62 @@ export const taxStyles = css`
   .cards > tax-reorder-modal {
     display: contents;
   }
-  /* Income card spans three rows, pinned left: deductions / spouse / MLS stack right. */
-  .cards .section.tall {
-    grid-row: span 3;
-    grid-column: 1;
+  /* Row columns inside full-width cards: two items per row. */
+  .cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--ff-space-4, 16px);
+  }
+  .cols > * {
+    min-width: 0;
+  }
+  /* Fixed value column so amounts align across both columns. */
+  .cols .tax-row > span:first-child {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cols .tax-row .num {
+    flex: 0 0 auto;
+    min-width: 112px;
+  }
+  .cols .tax-row > span:last-child {
+    flex: 0 0 64px;
+    text-align: right;
+  }
+  /* Full-width header: one heading group per item column. */
+  .cols-head-full {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--ff-space-4, 16px);
+    border-bottom: 1px solid var(--ff-border, #3e3e3e);
+  }
+  .cols-head-group {
+    display: flex;
+    gap: var(--ff-space-3, 12px);
+    align-items: baseline;
+    padding: 6px 0;
+    min-width: 0;
+  }
+  .cols-head-group > span:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .cols-head-group .num {
+    flex: 0 0 auto;
+    min-width: 112px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--ff-text-muted, #858585);
+    font-size: var(--ff-font-xs, 11px);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .cols-head-group > span:last-child {
+    flex: 0 0 64px;
   }
   /* Label/value rows */
   .tax-row {
@@ -147,21 +199,6 @@ export const taxStyles = css`
   .check-row input {
     width: auto;
   }
-  /* Compact row-menu button (⋮): touch-friendly but visually quiet. */
-  .icon-btn {
-    background: transparent;
-    color: var(--ff-text-muted, #858585);
-    border: 1px solid var(--ff-border, #3e3e3e);
-    border-radius: var(--ff-radius-md, 4px);
-    padding: 6px 12px;
-    font-size: var(--ff-font-lg, 15px);
-    line-height: 1;
-    cursor: pointer;
-  }
-  .icon-btn:hover {
-    color: var(--ff-text-strong, #ffffff);
-    border-color: var(--ff-accent, #007acc);
-  }
   /* Tables (spec §4) */
   .tax-table {
     width: 100%;
@@ -211,9 +248,14 @@ export const taxStyles = css`
     .cards .section.span {
       grid-column: auto;
     }
-    .cards .section.tall {
-      grid-row: auto;
-      grid-column: auto;
+    .cols {
+      grid-template-columns: 1fr;
+    }
+    .cols-head-full {
+      grid-template-columns: 1fr;
+    }
+    .cols-head-group:last-child {
+      display: none;
     }
     .tax-form {
       grid-template-columns: 1fr;

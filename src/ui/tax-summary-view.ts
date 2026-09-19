@@ -310,6 +310,112 @@ export class TaxSummaryView extends Base {
     this.editingSpouse = false;
   }
 
+  private toggleEditor(
+    prop: 'editingIncomeKey' | 'editingDeductionKey',
+    key: string,
+  ): void {
+    const cur = (this as any)[prop] as string | null;
+    (this as any)[prop] = cur === key ? null : key;
+    (this as any).requestUpdate?.();
+  }
+
+  private editButton(
+    prop: 'editingIncomeKey' | 'editingDeductionKey',
+    key: string,
+  ): unknown {
+    return html`<button
+      class="ghost"
+      @click=${() => this.toggleEditor(prop, key)}
+    >
+      Edit
+    </button>`;
+  }
+
+  private cancelButton(
+    prop: 'editingIncomeKey' | 'editingDeductionKey',
+  ): unknown {
+    return html`<button
+      class="ghost"
+      type="button"
+      @click=${() => {
+        (this as any)[prop] = null;
+        (this as any).requestUpdate?.();
+      }}
+    >
+      Cancel
+    </button>`;
+  }
+
+  private incomeEditor(): unknown {
+    const key = this.editingIncomeKey;
+    if (!key || this.locked) return '';
+    if (key === 'wages' && this.payYtd) return '';
+    const stored = this.income.find((r) => r.item_key === key);
+    const label =
+      key === 'wages'
+        ? 'Wages'
+        : (this.incomeTypes.find((it) => it.item_key === key)?.label ?? key);
+    return html`<form
+      class="tax-form"
+      @submit=${(e: Event) => this.saveIncome(key, e)}
+    >
+      <label
+        >${label} $
+        <input
+          name="amount"
+          type="number"
+          min="0"
+          step="0.01"
+          value=${String(stored?.amount ?? 0)}
+      /></label>
+      <label
+        >Withheld $
+        <input
+          name="withheld"
+          type="number"
+          min="0"
+          step="0.01"
+          value=${String(stored?.withheld ?? 0)}
+      /></label>
+      <button class="btn-primary" type="submit">Save</button>
+      ${this.cancelButton('editingIncomeKey')}
+    </form>`;
+  }
+
+  private deductionEditor(): unknown {
+    const key = this.editingDeductionKey;
+    if (!key || this.locked) return '';
+    const stored = this.deductions.find((r) => r.item_key === key);
+    const label =
+      this.deductionTypes.find((dt) => dt.item_key === key)?.label ?? key;
+    return html`<form
+      class="tax-form"
+      @submit=${(e: Event) => this.saveDeduction(key, e)}
+    >
+      <label
+        >${label} $
+        <input
+          name="cost"
+          type="number"
+          min="0"
+          step="0.01"
+          value=${String(stored?.cost ?? 0)}
+      /></label>
+      <label
+        >Work %
+        <input
+          name="work_percent"
+          type="number"
+          min="0"
+          max="100"
+          step="0.1"
+          value=${String(stored?.work_percent ?? 100)}
+      /></label>
+      <button class="btn-primary" type="submit">Save</button>
+      ${this.cancelButton('editingDeductionKey')}
+    </form>`;
+  }
+
   private openReorder(): void {
     const m = (this as any).renderRoot?.querySelector('#reorder') as any;
     if (m) {
@@ -374,284 +480,143 @@ export class TaxSummaryView extends Base {
         <div class="view-container-inner cards">
           ${this.error ? html`<p class="field-error">Error: ${this.error}</p>` : ''}
           ${this.locked ? html`<p>Locked — figures are read-only.</p>` : ''}
-          <div class="section tall" style="order:${this.orderOf('income')}">
+          <div class="section span" style="order:${this.orderOf('income')}">
             <div class="section-header">
               <h3 class="section-title">Income</h3>
             </div>
-            <div class="tax-row">
-              <span>Wages ${this.payYtd ? '(from Salary)' : '(typed)'}</span
-              ><span class="num">${w.amount.toFixed(2)}</span>
-              <span
-                >${
-                  this.locked || this.payYtd
-                    ? ''
-                    : html`<button
-                        class="icon-btn"
-                        @click=${() => {
-                          this.editingIncomeKey =
-                            this.editingIncomeKey === 'wages' ? null : 'wages';
-                          (this as any).requestUpdate();
-                        }}
-                      >
-                        ⋮
-                      </button>`
-                }</span
-              >
-            </div>
-            ${
-              this.editingIncomeKey === 'wages' && !this.locked && !this.payYtd
-                ? html`<form
-                    class="tax-form"
-                    @submit=${(e: Event) => this.saveIncome('wages', e)}
-                  >
-                    <label
-                      >Amount $
-                      <input
-                        name="amount"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value=${String(
-                          this.income.find((r) => r.item_key === 'wages')
-                            ?.amount ?? 0,
-                        )}
-                    /></label>
-                    <label
-                      >Withheld $
-                      <input
-                        name="withheld"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value=${String(
-                          this.income.find((r) => r.item_key === 'wages')
-                            ?.withheld ?? 0,
-                        )}
-                    /></label>
-                    <button class="btn-primary" type="submit">Save</button>
-                    <button
-                      class="ghost"
-                      type="button"
-                      @click=${() => {
-                        this.editingIncomeKey = null;
-                        (this as any).requestUpdate();
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </form>`
-                : ''
-            }
-            ${this.incomeTypes
-              .filter((it) => it.item_key !== 'wages')
-              .map((it) => {
-                const stored = this.income.find(
-                  (r) => r.item_key === it.item_key,
-                );
-                const amount = Number(stored?.amount ?? 0);
-                const withheld = Number(stored?.withheld ?? 0);
-                return html`<div class="tax-row">
+            <div class="cols">
+              <div class="cols-head-full" aria-hidden="true">
+                <div class="cols-head-group">
+                  <span></span><span class="num">Amount</span
+                  ><span class="num">Withheld</span><span></span>
+                </div>
+                <div class="cols-head-group">
+                  <span></span><span class="num">Amount</span
+                  ><span class="num">Withheld</span><span></span>
+                </div>
+              </div>
+              <div class="tax-row">
+                <span>Wages ${this.payYtd ? '(from Salary)' : '(typed)'}</span
+                ><span class="num">${w.amount.toFixed(2)}</span
+                ><span class="num">${w.withheld.toFixed(2)}</span>
+                <span
+                  >${
+                    this.locked || this.payYtd
+                      ? ''
+                      : this.editButton('editingIncomeKey', 'wages')
+                  }</span
+                >
+              </div>
+              ${this.incomeTypes
+                .filter((it) => it.item_key !== 'wages')
+                .map((it) => {
+                  const stored = this.income.find(
+                    (r) => r.item_key === it.item_key,
+                  );
+                  return html`<div class="tax-row">
                     <span>${it.label}</span
-                    ><span class="num">${amount.toFixed(2)}</span>
-                    <span
-                      >${
-                        this.locked
-                          ? ''
-                          : html`<button
-                              class="icon-btn"
-                              @click=${() => {
-                                this.editingIncomeKey =
-                                  this.editingIncomeKey === it.item_key
-                                    ? null
-                                    : it.item_key;
-                                (this as any).requestUpdate();
-                              }}
-                            >
-                              ⋮
-                            </button>`
-                      }</span
+                    ><span class="num"
+                      >${Number(stored?.amount ?? 0).toFixed(2)}</span
+                    ><span class="num"
+                      >${Number(stored?.withheld ?? 0).toFixed(2)}</span
                     >
-                  </div>
-                  ${
-                    this.editingIncomeKey === it.item_key && !this.locked
-                      ? html`<form
-                          class="tax-form"
-                          @submit=${(e: Event) => this.saveIncome(it.item_key, e)}
-                        >
-                          <label
-                            >Amount $
-                            <input
-                              name="amount"
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value=${String(amount)}
-                          /></label>
-                          <label
-                            >Withheld $
-                            <input
-                              name="withheld"
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value=${String(withheld)}
-                          /></label>
-                          <button class="btn-primary" type="submit">
-                            Save
-                          </button>
-                          <button
-                            class="ghost"
-                            type="button"
-                            @click=${() => {
-                              this.editingIncomeKey = null;
-                              (this as any).requestUpdate();
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </form>`
-                      : ''
-                  }`;
-              })}
+                    <span
+                      >${this.locked ? '' : this.editButton('editingIncomeKey', it.item_key)}</span
+                    >
+                  </div>`;
+                })}
+            </div>
+            ${this.incomeEditor()}
             <div class="tax-row total">
               <span>Total income</span
               ><span class="num">${t.income.toFixed(2)}</span>
             </div>
           </div>
-          <div class="section" style="order:${this.orderOf('deductions')}">
+          <div class="section span" style="order:${this.orderOf('deductions')}">
             <div class="section-header">
               <h3 class="section-title">Deductions</h3>
             </div>
-            ${this.deductionTypes.map((dt) => {
-              const row = this.deductions.find(
-                (r) => r.item_key === dt.item_key,
-              );
-              const cost = Number(row?.cost ?? 0);
-              const workPercent = Number(row?.work_percent ?? 100);
-              const claim = row ? deductionClaim(cost, workPercent) : 0;
-              return html`<div class="tax-row">
+            <div class="cols">
+              ${this.deductionTypes.map((dt) => {
+                const row = this.deductions.find(
+                  (r) => r.item_key === dt.item_key,
+                );
+                const cost = Number(row?.cost ?? 0);
+                const workPercent = Number(row?.work_percent ?? 100);
+                const claim = row ? deductionClaim(cost, workPercent) : 0;
+                return html`<div class="tax-row">
                   <span>${dt.label}</span
                   ><span class="num">${claim.toFixed(2)}</span>
                   <span
-                    >${
-                      this.locked
-                        ? ''
-                        : html`<button
-                            class="icon-btn"
-                            @click=${() => {
-                              this.editingDeductionKey =
-                                this.editingDeductionKey === dt.item_key
-                                  ? null
-                                  : dt.item_key;
-                              (this as any).requestUpdate();
-                            }}
-                          >
-                            ⋮
-                          </button>`
-                    }</span
+                    >${this.locked ? '' : this.editButton('editingDeductionKey', dt.item_key)}</span
                   >
-                </div>
-                ${
-                  this.editingDeductionKey === dt.item_key && !this.locked
-                    ? html`<form
-                        class="tax-form"
-                        @submit=${(e: Event) => this.saveDeduction(dt.item_key, e)}
-                      >
-                        <label
-                          >Cost $
-                          <input
-                            name="cost"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value=${String(cost)}
-                        /></label>
-                        <label
-                          >Work %
-                          <input
-                            name="work_percent"
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                            value=${String(workPercent)}
-                        /></label>
-                        <button class="btn-primary" type="submit">Save</button>
-                        <button
-                          class="ghost"
-                          type="button"
-                          @click=${() => {
-                            this.editingDeductionKey = null;
-                            (this as any).requestUpdate();
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </form>`
-                    : ''
-                }`;
-            })}
+                </div>`;
+              })}
+            </div>
+            ${this.deductionEditor()}
             <div class="tax-row total">
               <span>Total deductions</span
               ><span class="num">${t.deductions.toFixed(2)}</span>
             </div>
           </div>
-          <div class="section" style="order:${this.orderOf('spouse')}">
+          <div class="section span" style="order:${this.orderOf('spouse')}">
             <div class="section-header">
               <h3 class="section-title">Spouse</h3>
               ${
                 this.locked
                   ? ''
                   : html`<button
-                      class="icon-btn"
+                      class="ghost"
                       @click=${() => {
                         this.editingSpouse = !this.editingSpouse;
                         (this as any).requestUpdate();
                       }}
                     >
-                      ⋮
+                      Edit
                     </button>`
               }
             </div>
-            <div class="tax-row">
-              <span>Income</span
-              ><span class="num"
-                >${Number(s.spouse_income ?? 0).toFixed(2)}</span
-              >
-            </div>
-            <div class="tax-row">
-              <span>Fringe benefits</span
-              ><span class="num"
-                >${Number(s.fringe_benefits ?? 0).toFixed(2)}</span
-              >
-            </div>
-            <div class="tax-row">
-              <span>Super</span
-              ><span class="num"
-                >${Number(s.super_amount ?? 0).toFixed(2)}</span
-              >
-            </div>
-            <div class="tax-row">
-              <span>Investment losses</span
-              ><span class="num"
-                >${Number(s.investment_losses ?? 0).toFixed(2)}</span
-              >
-            </div>
-            <div class="tax-row">
-              <span>Reportable super</span
-              ><span class="num"
-                >${Number(s.reportable_super ?? 0).toFixed(2)}</span
-              >
-            </div>
-            <div class="tax-row">
-              <span>Hospital cover</span
-              ><span class="num"
-                >${(s.has_cover ?? true) ? `Yes (${Number(s.covered_days ?? 365)} days)` : 'No'}</span
-              >
-            </div>
-            <div class="tax-row">
-              <span>Children</span
-              ><span class="num">${Number(s.children_count ?? 0)}</span>
+            <div class="cols">
+              <div class="tax-row">
+                <span>Income</span
+                ><span class="num"
+                  >${Number(s.spouse_income ?? 0).toFixed(2)}</span
+                >
+              </div>
+              <div class="tax-row">
+                <span>Fringe benefits</span
+                ><span class="num"
+                  >${Number(s.fringe_benefits ?? 0).toFixed(2)}</span
+                >
+              </div>
+              <div class="tax-row">
+                <span>Super</span
+                ><span class="num"
+                  >${Number(s.super_amount ?? 0).toFixed(2)}</span
+                >
+              </div>
+              <div class="tax-row">
+                <span>Investment losses</span
+                ><span class="num"
+                  >${Number(s.investment_losses ?? 0).toFixed(2)}</span
+                >
+              </div>
+              <div class="tax-row">
+                <span>Reportable super</span
+                ><span class="num"
+                  >${Number(s.reportable_super ?? 0).toFixed(2)}</span
+                >
+              </div>
+              <div class="tax-row">
+                <span>Hospital cover</span
+                ><span class="num"
+                  >${(s.has_cover ?? true) ? `Yes (${Number(s.covered_days ?? 365)} days)` : 'No'}</span
+                >
+              </div>
+              <div class="tax-row">
+                <span>Children</span
+                ><span class="num">${Number(s.children_count ?? 0)}</span>
+              </div>
             </div>
             <div class="tax-row total">
               <span>Reportable total</span
