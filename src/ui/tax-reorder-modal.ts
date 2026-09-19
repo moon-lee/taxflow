@@ -7,11 +7,11 @@ const Base =
     : (class {} as unknown as typeof LitElement);
 
 export const CANONICAL_CARD_ORDER = [
+  'result',
   'income',
   'deductions',
   'spouse',
   'mls',
-  'result',
   'forecast',
   'planner',
 ];

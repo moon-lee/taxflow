@@ -6,7 +6,7 @@ export const taxStyles = css`
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--ff-space-4, 16px);
-    align-items: start;
+    align-items: stretch;
   }
   .cards .section {
     margin-bottom: 0;

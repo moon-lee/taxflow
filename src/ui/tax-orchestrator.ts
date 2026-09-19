@@ -18,7 +18,7 @@ const Base =
     : (class {} as unknown as typeof LitElement);
 const logger = new ExtensionLogger('taxflow');
 
-export type TaxTag = 'tax-summary' | 'tax-rates';
+export type TaxTag = 'tax-summary' | 'tax-rates' | 'tax-items';
 
 export class TaxOrchestrator extends Base {
   static override styles =
@@ -49,7 +49,12 @@ export class TaxOrchestrator extends Base {
     this.finance = f;
     this.mountData = mount;
     const v = (mount.view ?? mount.viewId) as string | undefined;
-    this.view = v === 'tax-rates' ? 'tax-rates' : 'tax-summary';
+    this.view =
+      v === 'tax-rates'
+        ? 'tax-rates'
+        : v === 'tax-items'
+          ? 'tax-items'
+          : 'tax-summary';
     await this.pushFinance();
   }
 
@@ -180,6 +185,7 @@ export class TaxOrchestrator extends Base {
       }
       ${this.view === 'tax-summary' ? html`<tax-summary-view id="child"></tax-summary-view>` : ''}
       ${this.view === 'tax-rates' ? html`<tax-rates-view id="child"></tax-rates-view>` : ''}
+      ${this.view === 'tax-items' ? html`<tax-items-view id="child"></tax-items-view>` : ''}
     `;
   }
 }

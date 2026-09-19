@@ -52,7 +52,6 @@ export class TaxSummaryView extends Base {
   labels: Record<string, string> = {};
   incomeTypes: ItemTypeRow[] = [];
   deductionTypes: ItemTypeRow[] = [];
-  allTypes: ItemTypeRow[] = [];
   payYtd: { gross: number; withheld: number } | null = null;
   topUp = 0;
   weeksElapsed = 9;
@@ -77,23 +76,15 @@ export class TaxSummaryView extends Base {
       ) {
         this.yearKey = this.years[this.years.length - 1].year_key;
       }
-      const [
-        income,
-        deductions,
-        spouse,
-        rates,
-        incomeTypes,
-        deductionTypes,
-        offsetTypes,
-      ] = await Promise.all([
-        listIncome(this.finance, this.yearKey),
-        listDeductions(this.finance, this.yearKey),
-        getSpouse(this.finance, this.yearKey),
-        getRates(this.finance, this.yearKey),
-        listItemTypes(this.finance, 'income'),
-        listItemTypes(this.finance, 'deduction'),
-        listItemTypes(this.finance, 'offset'),
-      ]);
+      const [income, deductions, spouse, rates, incomeTypes, deductionTypes] =
+        await Promise.all([
+          listIncome(this.finance, this.yearKey),
+          listDeductions(this.finance, this.yearKey),
+          getSpouse(this.finance, this.yearKey),
+          getRates(this.finance, this.yearKey),
+          listItemTypes(this.finance, 'income'),
+          listItemTypes(this.finance, 'deduction'),
+        ]);
       this.income = income as Array<{
         item_key: string;
         amount: number;
@@ -117,11 +108,6 @@ export class TaxSummaryView extends Base {
       }>;
       this.incomeTypes = incomeTypes as ItemTypeRow[];
       this.deductionTypes = deductionTypes as ItemTypeRow[];
-      this.allTypes = [
-        ...(incomeTypes as ItemTypeRow[]),
-        ...(deductionTypes as ItemTypeRow[]),
-        ...(offsetTypes as ItemTypeRow[]),
-      ];
       this.labels = Object.fromEntries(
         (incomeTypes as Array<{ item_key: string; label: string }>).map((t) => [
           t.item_key,
@@ -340,38 +326,6 @@ export class TaxSummaryView extends Base {
     });
   }
 
-  private createItem(e: Event): void {
-    e.preventDefault();
-    const fd = new FormData(e.target as HTMLFormElement);
-    const label = String(fd.get('label') ?? '').trim();
-    if (!label) return;
-    const itemKey =
-      label
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || `item-${Date.now()}`;
-    this.emit('item-create', {
-      input: {
-        item_key: itemKey,
-        label,
-        group: String(fd.get('group') ?? 'income'),
-        sort_order: this.allTypes.length + 1,
-      },
-    });
-    (e.target as HTMLFormElement).reset();
-  }
-
-  private deactivateItem(itemKey: string): void {
-    this.emit('item-deactivate', { itemKey });
-  }
-
-  private itemInUse(itemKey: string): boolean {
-    return (
-      this.income.some((r) => r.item_key === itemKey) ||
-      this.deductions.some((r) => r.item_key === itemKey)
-    );
-  }
-
   private openReorder(): void {
     const m = (this as any).renderRoot?.querySelector('#reorder') as any;
     if (m) {
@@ -411,6 +365,16 @@ export class TaxSummaryView extends Base {
         <div class="spacer"></div>
         <button class="filter-btn" @click=${() => this.openReorder()}>
           Reorder
+        </button>
+        <button
+          class="filter-btn"
+          @click=${() => {
+            void this.finance?.ui?.requestMount('taxflow', {
+              view: 'tax-items',
+            });
+          }}
+        >
+          Item Types
         </button>
         <select
           .value=${this.yearKey}
@@ -731,7 +695,7 @@ export class TaxSummaryView extends Base {
               </div>
             </div>
           </div>
-          <div class="section span" style="order:${this.orderOf('forecast')}">
+          <div class="section" style="order:${this.orderOf('forecast')}">
             <div class="section-header">
               <h3 class="section-title">Forecast (guess)</h3>
             </div>
@@ -755,7 +719,7 @@ export class TaxSummaryView extends Base {
               >
             </div>
           </div>
-          <div class="section span" style="order:${this.orderOf('planner')}">
+          <div class="section" style="order:${this.orderOf('planner')}">
             <div class="section-header">
               <h3 class="section-title">Super top-up planner</h3>
             </div>
@@ -779,44 +743,6 @@ export class TaxSummaryView extends Base {
               <span>Extra saving</span
               ><span class="num">${plan.saving.toFixed(2)}</span>
             </div>
-          </div>
-          <div class="section span" style="order:99">
-            <div class="section-header">
-              <h3 class="section-title">Item types</h3>
-            </div>
-            ${this.allTypes.map(
-              (it) =>
-                html`<div class="tax-row">
-                  <span>${it.label} (${it.group})</span>
-                  <span
-                    >${this.itemInUse(it.item_key) ? html`<span class="num">in use</span>` : html`<button class="ghost" @click=${() => this.deactivateItem(it.item_key)}>Deactivate</button>`}</span
-                  >
-                </div>`,
-            )}
-            ${
-              this.locked
-                ? ''
-                : html`<form
-                    class="tax-form"
-                    @submit=${(e: Event) => this.createItem(e)}
-                  >
-                    <label
-                      >Label
-                      <input name="label" placeholder="Bank fees" required
-                    /></label>
-                    <label
-                      >Group
-                      <select name="group">
-                        <option value="income">income</option>
-                        <option value="deduction">deduction</option>
-                        <option value="offset">offset</option>
-                      </select></label
-                    >
-                    <button class="btn-primary" type="submit">
-                      Add item type
-                    </button>
-                  </form>`
-            }
           </div>
           <tax-reorder-modal id="reorder"></tax-reorder-modal>
         </div>
