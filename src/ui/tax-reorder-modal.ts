@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, css, html } from 'lit';
 import { sharedStyles } from '../styles/shared-styles.js';
 
 const Base =
@@ -11,24 +11,56 @@ export const CANONICAL_CARD_ORDER = [
   'income',
   'deductions',
   'spouse',
-  'mls',
   'forecast',
   'planner',
 ];
 
 export const CARD_LABELS: Record<string, string> = {
-  income: 'Income',
+  income: 'Taxable Income',
   deductions: 'Deductions',
-  spouse: 'Spouse',
-  mls: 'Surcharge (MLS)',
-  result: 'Result',
+  spouse: 'Spouse and Child Details',
+  result: 'Est. Tax Return',
   forecast: 'Forecast (guess)',
   planner: 'Super top-up planner',
 };
 
 export class TaxReorderModal extends Base {
   static override styles =
-    typeof HTMLElement !== 'undefined' ? ([sharedStyles] as any) : [];
+    typeof HTMLElement !== 'undefined'
+      ? ([
+          sharedStyles,
+          css`
+            .item {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 12px;
+              padding: 6px 10px;
+              border: 1px solid var(--ff-bg-input, #3c3c3c);
+              border-left: 4px solid var(--ff-bg-input, #3c3c3c);
+              border-radius: 4px;
+              margin-bottom: 6px;
+            }
+            .item.first {
+              border-left-color: var(--ff-teal, #4ec9b0);
+            }
+            .item.last {
+              border-left-color: var(--ff-accent, #007acc);
+            }
+            .item .label {
+              flex: 1;
+            }
+            .up {
+              background: var(--ff-accent, #007acc);
+              color: var(--ff-text-strong, #fff);
+            }
+            .down {
+              background: var(--ff-accent-hover, #1177bb);
+              color: var(--ff-text-strong, #fff);
+            }
+          `,
+        ] as any)
+      : [];
   open = false;
   order: string[] = [...CANONICAL_CARD_ORDER];
 
@@ -63,32 +95,31 @@ export class TaxReorderModal extends Base {
     if (typeof HTMLElement === 'undefined' || !this.open) return html``;
     return html`
       <div class="backdrop">
-        <div class="modal">
-          <h3>Reorder cards</h3>
+        <div class="modal" role="dialog" aria-label="Reorder cards">
+          <h2>Reorder Cards</h2>
           ${this.order.map(
             (tag, ix) =>
-              html`<div class="tax-row">
-                <span>${CARD_LABELS[tag] ?? tag}</span>
-                <span>
-                  <button
-                    class="ghost"
-                    @click=${() => this.move(ix, -1)}
-                    ?disabled=${ix === 0}
-                  >
-                    Up
-                  </button>
-                  <button
-                    class="ghost"
-                    @click=${() => this.move(ix, 1)}
-                    ?disabled=${ix === this.order.length - 1}
-                  >
-                    Down
-                  </button>
-                </span>
+              html`<div
+                class="item ${ix === 0 ? 'first' : ''} ${ix === this.order.length - 1 ? 'last' : ''}"
+              >
+                <span class="label">${CARD_LABELS[tag] ?? tag}</span>
+                <button
+                  class="up"
+                  ?disabled=${ix === 0}
+                  @click=${() => this.move(ix, -1)}
+                >
+                  ▲
+                </button>
+                <button
+                  class="down"
+                  ?disabled=${ix === this.order.length - 1}
+                  @click=${() => this.move(ix, 1)}
+                >
+                  ▼
+                </button>
               </div>`,
           )}
           <div class="modal-actions">
-            <button class="ghost" @click=${() => this.reset()}>Reset</button>
             <button
               class="ghost"
               @click=${() => {
@@ -98,9 +129,10 @@ export class TaxReorderModal extends Base {
             >
               Cancel
             </button>
-            <button class="btn-primary" @click=${() => this.save()}>
-              Save
+            <button class="ghost" @click=${() => this.reset()}>
+              Reset to default
             </button>
+            <button class="primary" @click=${() => this.save()}>Save</button>
           </div>
         </div>
       </div>

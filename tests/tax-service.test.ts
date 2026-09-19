@@ -112,8 +112,6 @@ describe('tax service (sheet numbers)', () => {
   async function seed(finance: any): Promise<void> {
     await finance.db.table('taxflow_years').insert({
       year_key: '2026-2027',
-      start_date: '2026-07-01',
-      end_date: '2027-06-30',
       is_locked: false,
     });
     const brackets = [

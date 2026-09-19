@@ -14,8 +14,6 @@ const Base =
     ? LitElement
     : (class {} as unknown as typeof LitElement);
 
-const GROUPS: ItemGroup[] = ['income', 'deduction', 'offset'];
-
 export class TaxItemsView extends Base {
   static override styles =
     typeof HTMLElement !== 'undefined'
@@ -120,6 +118,37 @@ export class TaxItemsView extends Base {
     this.emit('item-deactivate', { itemKey });
   }
 
+  private renderGroup(group: ItemGroup, title: string): unknown {
+    const cls = group === 'income' ? 'section income-full' : 'section';
+    return html`<div class=${cls}>
+      <div class="section-header">
+        <h3 class="section-title">${title} types</h3>
+      </div>
+      ${this.types
+        .filter((it) => it.group === group)
+        .map(
+          (it) =>
+            html`<div class="tax-row">
+              <span>${it.label}</span>
+              <span
+                >${
+                  this.itemInUse(it.item_key)
+                    ? html`<span class="num">in use</span>`
+                    : this.locked
+                      ? ''
+                      : html`<button
+                          class="ghost"
+                          @click=${() => this.deactivateItem(it.item_key)}
+                        >
+                          Deactivate
+                        </button>`
+                }</span
+              >
+            </div>`,
+        )}
+    </div>`;
+  }
+
   override render(): unknown {
     if (typeof HTMLElement === 'undefined') return html``;
     return html`
@@ -127,41 +156,13 @@ export class TaxItemsView extends Base {
         <span class="crumb-current">Item Types</span>
         <div class="spacer"></div>
         <button class="filter-btn" @click=${() => this.back()}>Back</button>
-        <select
-          .value=${this.yearKey}
-          @change=${(e: Event) => {
-            this.yearKey = (e.target as HTMLSelectElement).value;
-            void this.load();
-          }}
-        >
-          ${this.years.map((y) => html`<option value=${y.year_key}>${y.year_key}${y.is_locked ? ' (locked)' : ''}</option>`)}
-        </select>
       </div>
       <div class="view-container">
         <div class="view-container-inner cards">
           ${this.error ? html`<p class="field-error">Error: ${this.error}</p>` : ''}
-          ${GROUPS.map(
-            (g) =>
-              html`<div class="section">
-                <div class="section-header">
-                  <h3 class="section-title">
-                    ${g === 'income' ? 'Income' : g === 'deduction' ? 'Deduction' : 'Offset'}
-                    types
-                  </h3>
-                </div>
-                ${this.types
-                  .filter((it) => it.group === g)
-                  .map(
-                    (it) =>
-                      html`<div class="tax-row">
-                        <span>${it.label}</span>
-                        <span
-                          >${this.itemInUse(it.item_key) ? html`<span class="num">in use</span>` : this.locked ? '' : html`<button class="ghost" @click=${() => this.deactivateItem(it.item_key)}>Deactivate</button>`}</span
-                        >
-                      </div>`,
-                  )}
-              </div>`,
-          )}
+          ${this.renderGroup('income', 'Income')}
+          ${this.renderGroup('deduction', 'Deduction')}
+          ${this.renderGroup('offset', 'Offset')}
           <div class="section span">
             <div class="section-header">
               <h3 class="section-title">New item type</h3>

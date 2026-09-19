@@ -62,8 +62,6 @@ describe('years dao', () => {
     const { createYear } = await import('../src/dao/years.js');
     await createYear(finance, {
       year_key: '2026-2027',
-      start_date: '2026-07-01',
-      end_date: '2027-06-30',
     });
     expect(await listYears(finance)).toHaveLength(1);
     await lockYear(finance, '2026-2027');

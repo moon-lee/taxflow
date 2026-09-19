@@ -9,8 +9,6 @@ export async function seedIfEmpty(finance: any): Promise<void> {
   if (years.length > 0) return;
   await finance.db.table('taxflow_years').insert({
     year_key: YEAR,
-    start_date: '2026-07-01',
-    end_date: '2027-06-30',
     is_locked: false,
   });
   const brackets = [

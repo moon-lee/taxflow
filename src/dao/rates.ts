@@ -39,6 +39,19 @@ export async function saveRate(
   return res.id;
 }
 
+export async function updateRate(
+  finance: any,
+  id: number,
+  patch: {
+    limit_from: number;
+    limit_to: number | null;
+    base_amount: number;
+    rate: number;
+  },
+): Promise<void> {
+  await finance.db.table(TABLE).update({ id }, patch);
+}
+
 export async function copyRates(
   finance: any,
   fromYear: string,

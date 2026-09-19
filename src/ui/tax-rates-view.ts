@@ -3,6 +3,8 @@ import { sharedStyles } from '../styles/shared-styles.js';
 import { taxStyles } from '../styles/taxflow-styles.js';
 import { listYears } from '../dao/years.js';
 import { getRates, type RateKind } from '../dao/rates.js';
+import { grouped, rawNumber } from '../utils/format.js';
+import { aud } from '../utils/format.js';
 
 const Base =
   typeof HTMLElement !== 'undefined'
@@ -10,6 +12,7 @@ const Base =
     : (class {} as unknown as typeof LitElement);
 
 interface RateRowView {
+  id: number;
   kind: string;
   limit_from: number;
   limit_to: number | null;
@@ -27,11 +30,12 @@ export class TaxRatesView extends Base {
   yearKey = '2026-2027';
   years: Array<{
     year_key: string;
-    start_date: string;
-    end_date: string;
     is_locked: boolean;
   }> = [];
   rates: RateRowView[] = [];
+  editingBracketId: number | null = null;
+  editingMlsId: number | null = null;
+  editingLinkId: number | null = null;
   error = '';
 
   async setFinance(f: any): Promise<void> {
@@ -43,8 +47,6 @@ export class TaxRatesView extends Base {
     try {
       this.years = (await listYears(this.finance)) as Array<{
         year_key: string;
-        start_date: string;
-        end_date: string;
         is_locked: boolean;
       }>;
       if (
@@ -85,56 +87,113 @@ export class TaxRatesView extends Base {
     return Number.isFinite(n) ? n : fallback;
   }
 
+  private moneyFocus(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const n = rawNumber(input.value);
+    input.value = Number.isFinite(n) ? String(n) : '';
+    input.select?.();
+  }
+
+  private moneyBlur(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    input.value = grouped(rawNumber(input.value));
+  }
+
   private saveBracket(e: Event): void {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
     const toRaw = String(fd.get('to') ?? '').trim();
-    this.emit('rates-save', {
-      input: {
-        year_key: this.yearKey,
-        kind: 'bracket',
-        limit_from: this.num(fd.get('from')),
-        limit_to: toRaw === '' ? null : this.num(fd.get('to')),
-        base_amount: this.num(fd.get('base')),
-        rate: this.num(fd.get('rate')),
-        label: null,
-      },
-    });
-    (e.target as HTMLFormElement).reset();
+    const patch = {
+      limit_from: rawNumber(fd.get('from') as string),
+      limit_to: toRaw === '' ? null : rawNumber(fd.get('to') as string),
+      base_amount: rawNumber(fd.get('base') as string),
+      rate: this.num(fd.get('rate')),
+    };
+    if (this.editingBracketId !== null) {
+      this.emit('rates-save', { id: this.editingBracketId, patch });
+      this.editingBracketId = null;
+    } else {
+      this.emit('rates-save', {
+        input: {
+          year_key: this.yearKey,
+          kind: 'bracket',
+          ...patch,
+          label: null,
+        },
+      });
+      (e.target as HTMLFormElement).reset();
+    }
+  }
+
+  private editBracket(r: RateRowView): void {
+    if (this.locked) return;
+    this.editingBracketId = r.id;
+    (this as any).requestUpdate?.();
+  }
+
+  private editMls(r: RateRowView): void {
+    if (this.locked) return;
+    this.editingMlsId = r.id;
+    (this as any).requestUpdate?.();
   }
 
   private saveMedicare(e: Event): void {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
-    this.emit('rates-save', {
-      input: {
-        year_key: this.yearKey,
-        kind: 'medicare',
-        limit_from: 0,
-        limit_to: null,
-        base_amount: 0,
-        rate: this.num(fd.get('rate')),
-        label: 'Flat rate (v1)',
-      },
-    });
+    const medicare = this.ofKind('medicare')[0];
+    if (medicare) {
+      this.emit('rates-save', {
+        id: medicare.id,
+        patch: {
+          limit_from: 0,
+          limit_to: null,
+          base_amount: 0,
+          rate: this.num(fd.get('rate')),
+        },
+      });
+    } else {
+      this.emit('rates-save', {
+        input: {
+          year_key: this.yearKey,
+          kind: 'medicare',
+          limit_from: 0,
+          limit_to: null,
+          base_amount: 0,
+          rate: this.num(fd.get('rate')),
+          label: 'Flat rate (v1)',
+        },
+      });
+    }
   }
 
   private saveMls(kind: RateKind, e: Event): void {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
     const toRaw = String(fd.get('to') ?? '').trim();
-    this.emit('rates-save', {
-      input: {
-        year_key: this.yearKey,
-        kind,
-        limit_from: this.num(fd.get('from')),
-        limit_to: toRaw === '' ? null : this.num(fd.get('to')),
-        base_amount: 0,
-        rate: this.num(fd.get('rate')),
-        label: null,
-      },
-    });
-    (e.target as HTMLFormElement).reset();
+    if (this.editingMlsId !== null) {
+      this.emit('rates-save', {
+        id: this.editingMlsId,
+        patch: {
+          limit_from: rawNumber(fd.get('from') as string),
+          limit_to: toRaw === '' ? null : rawNumber(fd.get('to') as string),
+          rate: this.num(fd.get('rate')),
+        },
+      });
+      this.editingMlsId = null;
+    } else {
+      this.emit('rates-save', {
+        input: {
+          year_key: this.yearKey,
+          kind,
+          limit_from: rawNumber(fd.get('from') as string),
+          limit_to: toRaw === '' ? null : rawNumber(fd.get('to') as string),
+          base_amount: 0,
+          rate: this.num(fd.get('rate')),
+          label: null,
+        },
+      });
+      (e.target as HTMLFormElement).reset();
+    }
   }
 
   private saveLink(e: Event): void {
@@ -142,18 +201,38 @@ export class TaxRatesView extends Base {
     const fd = new FormData(e.target as HTMLFormElement);
     const url = String(fd.get('url') ?? '').trim();
     if (!url) return;
-    this.emit('rates-save', {
-      input: {
-        year_key: this.yearKey,
-        kind: 'link',
-        limit_from: 0,
-        limit_to: null,
-        base_amount: 0,
-        rate: 0,
-        label: url,
-      },
-    });
-    (e.target as HTMLFormElement).reset();
+    if (this.editingLinkId !== null) {
+      this.emit('rates-save', {
+        id: this.editingLinkId,
+        patch: {
+          limit_from: 0,
+          limit_to: null,
+          base_amount: 0,
+          rate: 0,
+          label: url,
+        },
+      });
+      this.editingLinkId = null;
+    } else {
+      this.emit('rates-save', {
+        input: {
+          year_key: this.yearKey,
+          kind: 'link',
+          limit_from: 0,
+          limit_to: null,
+          base_amount: 0,
+          rate: 0,
+          label: url,
+        },
+      });
+      (e.target as HTMLFormElement).reset();
+    }
+  }
+
+  private editLink(r: RateRowView): void {
+    if (this.locked) return;
+    this.editingLinkId = r.id;
+    (this as any).requestUpdate?.();
   }
 
   private copyYear(e: Event): void {
@@ -164,8 +243,6 @@ export class TaxRatesView extends Base {
     this.emit('year-copy', {
       input: {
         year_key: yearKey,
-        start_date: String(fd.get('start_date') ?? ''),
-        end_date: String(fd.get('end_date') ?? ''),
       },
       fromYear: this.yearKey,
     });
@@ -174,10 +251,6 @@ export class TaxRatesView extends Base {
 
   private toggleLock(): void {
     this.emit('year-lock', { yearKey: this.yearKey, locked: this.locked });
-  }
-
-  private money(n: number): string {
-    return Number(n).toLocaleString('en-AU', { maximumFractionDigits: 0 });
   }
 
   override render(): unknown {
@@ -191,28 +264,34 @@ export class TaxRatesView extends Base {
       <div class="topbar">
         <span class="crumb-current">Tax Rates</span>
         <div class="spacer"></div>
-        <select
-          .value=${this.yearKey}
-          @change=${(e: Event) => {
-            this.yearKey = (e.target as HTMLSelectElement).value;
-            void this.load();
-          }}
-        >
-          ${this.years.map((y) => html`<option value=${y.year_key}>${y.year_key}${y.is_locked ? ' (locked)' : ''}</option>`)}
-        </select>
-        <button class="filter-btn" @click=${() => this.toggleLock()}>
-          ${this.locked ? 'Unlock' : 'Lock'}
-        </button>
       </div>
       <div class="view-container">
-        <div class="view-container-inner">
+        <div class="view-container-inner cards">
           ${this.error ? html`<p class="field-error">Error: ${this.error}</p>` : ''}
           ${this.locked ? html`<p>Locked — unlock to edit rates.</p>` : ''}
-          <div class="section">
+          <div class="section span">
             <div class="section-header">
               <h3 class="section-title">Years</h3>
+              <div class="header-controls">
+                <select
+                  class="year-badge"
+                  .value=${this.yearKey}
+                  @change=${(e: Event) => {
+                    this.yearKey = (e.target as HTMLSelectElement).value;
+                    void this.load();
+                  }}
+                >
+                  ${this.years.map((y) => html`<option value=${y.year_key}>${y.year_key}${y.is_locked ? ' (locked)' : ''}</option>`)}
+                </select>
+                <button
+                  class="filter-btn ${this.locked ? 'locked' : ''}"
+                  @click=${() => this.toggleLock()}
+                >
+                  ${this.locked ? 'Unlock' : 'Lock'}
+                </button>
+              </div>
             </div>
-            ${this.years.map((y) => html`<div class="tax-row"><span>${y.year_key} (${y.start_date} – ${y.end_date})</span><span class="pill ${y.is_locked ? 'locked' : 'open'}">${y.is_locked ? 'locked' : 'open'}</span></div>`)}
+            ${this.years.map((y) => html`<div class="tax-row"><span>${y.year_key}</span><span class="pill ${y.is_locked ? 'locked' : 'open'}">${y.is_locked ? 'locked' : 'open'}</span></div>`)}
             ${
               this.locked
                 ? ''
@@ -224,29 +303,13 @@ export class TaxRatesView extends Base {
                       >New year
                       <input name="year_key" placeholder="2027-2028" required
                     /></label>
-                    <label
-                      >Start
-                      <input
-                        name="start_date"
-                        type="date"
-                        value="2027-07-01"
-                        required
-                    /></label>
-                    <label
-                      >End
-                      <input
-                        name="end_date"
-                        type="date"
-                        value="2028-06-30"
-                        required
-                    /></label>
                     <button class="btn-primary" type="submit">
                       Copy ${this.yearKey} rates to new year
                     </button>
                   </form>`
             }
           </div>
-          <div class="section">
+          <div class="section span">
             <div class="section-header">
               <h3 class="section-title">Tax brackets</h3>
             </div>
@@ -263,84 +326,92 @@ export class TaxRatesView extends Base {
                 <tbody>
                   ${brackets.map(
                     (r) =>
-                      html`<tr>
-                        <td>$${this.money(r.limit_from)}</td>
-                        <td>
-                          ${r.limit_to === null ? '∞' : '$' + this.money(r.limit_to)}
-                        </td>
+                      html`<tr
+                        class=${this.locked ? '' : 'clickable'}
+                        @click=${() => this.editBracket(r)}
+                      >
+                        <td>${aud(r.limit_from)}</td>
+                        <td>${r.limit_to === null ? '∞' : aud(r.limit_to)}</td>
                         <td class="num">
                           ${(Number(r.rate) * 100).toFixed(1)}%
                         </td>
-                        <td class="num">$${this.money(r.base_amount)}</td>
+                        <td class="num">${aud(r.base_amount)}</td>
                       </tr>`,
                   )}
                 </tbody>
               </table>
             </div>
-            ${
-              this.locked
-                ? ''
-                : html`<form
-                    class="tax-form"
-                    @submit=${(e: Event) => this.saveBracket(e)}
-                  >
-                    <label
-                      >From <input name="from" type="number" min="0" required
-                    /></label>
-                    <label
-                      >To (blank = no top)
-                      <input name="to" type="number" min="0"
-                    /></label>
-                    <label
-                      >Base <input name="base" type="number" min="0" required
-                    /></label>
-                    <label
-                      >Rate (0.3 = 30%)
-                      <input
-                        name="rate"
-                        type="number"
-                        min="0"
-                        step="0.001"
-                        required
-                    /></label>
-                    <button class="btn-primary" type="submit">
-                      Add bracket
-                    </button>
-                  </form>`
-            }
-          </div>
-          <div class="section">
-            <div class="section-header">
-              <h3 class="section-title">Medicare levy</h3>
-            </div>
-            <div class="tax-row">
-              <span>Flat rate</span
-              ><span class="num"
-                >${(Number(medicare?.rate ?? 0.02) * 100).toFixed(1)}%</span
+            ${(() => {
+              if (this.locked) return '';
+              const editRow =
+                brackets.find((r) => r.id === this.editingBracketId) ?? null;
+              return html`<form
+                class="tax-form"
+                @submit=${(e: Event) => this.saveBracket(e)}
               >
-            </div>
-            ${
-              this.locked
-                ? ''
-                : html`<form
-                    class="tax-form"
-                    @submit=${(e: Event) => this.saveMedicare(e)}
-                  >
-                    <label
-                      >Rate (0.02 = 2%)
-                      <input
-                        name="rate"
-                        type="number"
-                        min="0"
-                        step="0.001"
-                        value="0.02"
-                        required
-                    /></label>
-                    <button class="btn-primary" type="submit">
-                      Save Medicare rate
-                    </button>
-                  </form>`
-            }
+                <label
+                  >From
+                  <input
+                    name="from"
+                    type="text"
+                    inputmode="decimal"
+                    .value=${grouped(editRow?.limit_from ?? 0)}
+                    @focus=${(e: Event) => this.moneyFocus(e)}
+                    @blur=${(e: Event) => this.moneyBlur(e)}
+                    required
+                /></label>
+                <label
+                  >To (blank = no top)
+                  <input
+                    name="to"
+                    type="text"
+                    inputmode="decimal"
+                    .value=${editRow?.limit_to === null || editRow?.limit_to === undefined ? '' : grouped(editRow.limit_to)}
+                    @focus=${(e: Event) => this.moneyFocus(e)}
+                    @blur=${(e: Event) => this.moneyBlur(e)}
+                /></label>
+                <label
+                  >Base
+                  <input
+                    name="base"
+                    type="text"
+                    inputmode="decimal"
+                    .value=${grouped(editRow?.base_amount ?? 0)}
+                    @focus=${(e: Event) => this.moneyFocus(e)}
+                    @blur=${(e: Event) => this.moneyBlur(e)}
+                    required
+                /></label>
+                <label
+                  >Rate (0.3 = 30%)
+                  <input
+                    name="rate"
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    .value=${editRow ? String(editRow.rate) : ''}
+                    required
+                /></label>
+                <div class="form-actions">
+                  <button class="btn-primary" type="submit">
+                    ${editRow ? 'Save bracket' : 'Add bracket'}
+                  </button>
+                  ${
+                    editRow
+                      ? html`<button
+                          class="ghost"
+                          type="button"
+                          @click=${() => {
+                            this.editingBracketId = null;
+                            (this as any).requestUpdate?.();
+                          }}
+                        >
+                          Cancel
+                        </button>`
+                      : ''
+                  }
+                </div>
+              </form>`;
+            })()}
           </div>
           <div class="section">
             <div class="section-header">
@@ -358,11 +429,12 @@ export class TaxRatesView extends Base {
                 <tbody>
                   ${mlsSingle.map(
                     (r) =>
-                      html`<tr>
-                        <td>$${this.money(r.limit_from)}</td>
-                        <td>
-                          ${r.limit_to === null ? '∞' : '$' + this.money(r.limit_to)}
-                        </td>
+                      html`<tr
+                        class=${this.locked ? '' : 'clickable'}
+                        @click=${() => this.editMls(r)}
+                      >
+                        <td>${aud(r.limit_from)}</td>
+                        <td>${r.limit_to === null ? '∞' : aud(r.limit_to)}</td>
                         <td class="num">
                           ${(Number(r.rate) * 100).toFixed(2)}%
                         </td>
@@ -374,30 +446,65 @@ export class TaxRatesView extends Base {
             ${
               this.locked
                 ? ''
-                : html`<form
-                    class="tax-form"
-                    @submit=${(e: Event) => this.saveMls('mls-single', e)}
-                  >
-                    <label
-                      >From <input name="from" type="number" min="0" required
-                    /></label>
-                    <label
-                      >To (blank = no top)
-                      <input name="to" type="number" min="0"
-                    /></label>
-                    <label
-                      >Rate
-                      <input
-                        name="rate"
-                        type="number"
-                        min="0"
-                        step="0.0001"
-                        required
-                    /></label>
-                    <button class="btn-primary" type="submit">
-                      Add single tier
-                    </button>
-                  </form>`
+                : (() => {
+                    const editRow =
+                      mlsSingle.find((r) => r.id === this.editingMlsId) ?? null;
+                    return html`<form
+                      class="tax-form"
+                      @submit=${(e: Event) => this.saveMls('mls-single', e)}
+                    >
+                      <label
+                        >From
+                        <input
+                          name="from"
+                          type="text"
+                          inputmode="decimal"
+                          .value=${grouped(editRow?.limit_from ?? 0)}
+                          @focus=${(e: Event) => this.moneyFocus(e)}
+                          @blur=${(e: Event) => this.moneyBlur(e)}
+                          required
+                      /></label>
+                      <label
+                        >To (blank = no top)
+                        <input
+                          name="to"
+                          type="text"
+                          inputmode="decimal"
+                          .value=${editRow?.limit_to === null || editRow?.limit_to === undefined ? '' : grouped(editRow.limit_to)}
+                          @focus=${(e: Event) => this.moneyFocus(e)}
+                          @blur=${(e: Event) => this.moneyBlur(e)}
+                      /></label>
+                      <label
+                        >Rate
+                        <input
+                          name="rate"
+                          type="number"
+                          min="0"
+                          step="0.0001"
+                          .value=${editRow ? String(editRow.rate) : ''}
+                          required
+                      /></label>
+                      <div class="form-actions">
+                        <button class="btn-primary" type="submit">
+                          ${editRow ? 'Save tier' : 'Add single tier'}
+                        </button>
+                        ${
+                          editRow
+                            ? html`<button
+                                class="ghost"
+                                type="button"
+                                @click=${() => {
+                                  this.editingMlsId = null;
+                                  (this as any).requestUpdate?.();
+                                }}
+                              >
+                                Cancel
+                              </button>`
+                            : ''
+                        }
+                      </div>
+                    </form>`;
+                  })()
             }
           </div>
           <div class="section">
@@ -416,11 +523,12 @@ export class TaxRatesView extends Base {
                 <tbody>
                   ${mlsFamily.map(
                     (r) =>
-                      html`<tr>
-                        <td>$${this.money(r.limit_from)}</td>
-                        <td>
-                          ${r.limit_to === null ? '∞' : '$' + this.money(r.limit_to)}
-                        </td>
+                      html`<tr
+                        class=${this.locked ? '' : 'clickable'}
+                        @click=${() => this.editMls(r)}
+                      >
+                        <td>${aud(r.limit_from)}</td>
+                        <td>${r.limit_to === null ? '∞' : aud(r.limit_to)}</td>
                         <td class="num">
                           ${(Number(r.rate) * 100).toFixed(2)}%
                         </td>
@@ -432,29 +540,94 @@ export class TaxRatesView extends Base {
             ${
               this.locked
                 ? ''
+                : (() => {
+                    const editRow =
+                      mlsFamily.find((r) => r.id === this.editingMlsId) ?? null;
+                    return html`<form
+                      class="tax-form"
+                      @submit=${(e: Event) => this.saveMls('mls-family', e)}
+                    >
+                      <label
+                        >From
+                        <input
+                          name="from"
+                          type="text"
+                          inputmode="decimal"
+                          .value=${grouped(editRow?.limit_from ?? 0)}
+                          @focus=${(e: Event) => this.moneyFocus(e)}
+                          @blur=${(e: Event) => this.moneyBlur(e)}
+                          required
+                      /></label>
+                      <label
+                        >To (blank = no top)
+                        <input
+                          name="to"
+                          type="text"
+                          inputmode="decimal"
+                          .value=${editRow?.limit_to === null || editRow?.limit_to === undefined ? '' : grouped(editRow.limit_to)}
+                          @focus=${(e: Event) => this.moneyFocus(e)}
+                          @blur=${(e: Event) => this.moneyBlur(e)}
+                      /></label>
+                      <label
+                        >Rate
+                        <input
+                          name="rate"
+                          type="number"
+                          min="0"
+                          step="0.0001"
+                          .value=${editRow ? String(editRow.rate) : ''}
+                          required
+                      /></label>
+                      <div class="form-actions">
+                        <button class="btn-primary" type="submit">
+                          ${editRow ? 'Save tier' : 'Add family tier'}
+                        </button>
+                        ${
+                          editRow
+                            ? html`<button
+                                class="ghost"
+                                type="button"
+                                @click=${() => {
+                                  this.editingMlsId = null;
+                                  (this as any).requestUpdate?.();
+                                }}
+                              >
+                                Cancel
+                              </button>`
+                            : ''
+                        }
+                      </div>
+                    </form>`;
+                  })()
+            }
+          </div>
+          <div class="section">
+            <div class="section-header">
+              <h3 class="section-title">Medicare levy</h3>
+            </div>
+            ${
+              this.locked
+                ? html`<div class="tax-row">
+                    <span>Flat rate</span
+                    ><span class="num"
+                      >${(Number(medicare?.rate ?? 0.02) * 100).toFixed(1)}%</span
+                    >
+                  </div>`
                 : html`<form
-                    class="tax-form"
-                    @submit=${(e: Event) => this.saveMls('mls-family', e)}
+                    class="tax-form inline single"
+                    @submit=${(e: Event) => this.saveMedicare(e)}
                   >
                     <label
-                      >From <input name="from" type="number" min="0" required
-                    /></label>
-                    <label
-                      >To (blank = no top)
-                      <input name="to" type="number" min="0"
-                    /></label>
-                    <label
-                      >Rate
+                      >Rate (0.02 = 2%)
                       <input
                         name="rate"
                         type="number"
                         min="0"
-                        step="0.0001"
+                        step="0.001"
+                        .value=${String(medicare?.rate ?? '0.02')}
                         required
                     /></label>
-                    <button class="btn-primary" type="submit">
-                      Add family tier
-                    </button>
+                    <button class="btn-primary" type="submit">Save</button>
                   </form>`
             }
           </div>
@@ -462,24 +635,70 @@ export class TaxRatesView extends Base {
             <div class="section-header">
               <h3 class="section-title">Reference links</h3>
             </div>
-            ${links.map((r) => html`<div class="tax-row"><span>${r.label}</span></div>`)}
+            ${links.map(
+              (r) =>
+                html`<div
+                  class="tax-row ${this.locked ? '' : 'clickable'}"
+                  @click=${() => {
+                    if (this.locked) return;
+                    this.editLink(r);
+                  }}
+                >
+                  <span>${r.label}</span>
+                  <button
+                    class="icon-btn"
+                    type="button"
+                    title="Open in browser"
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      if (typeof window !== 'undefined' && r.label)
+                        window.open(r.label, '_blank', 'noopener');
+                    }}
+                  >
+                    Open
+                  </button>
+                </div>`,
+            )}
             ${
               this.locked
                 ? ''
-                : html`<form
-                    class="tax-form"
-                    @submit=${(e: Event) => this.saveLink(e)}
-                  >
-                    <label
-                      >URL
-                      <input
-                        name="url"
-                        type="url"
-                        placeholder="https://…"
-                        required
-                    /></label>
-                    <button class="btn-primary" type="submit">Add link</button>
-                  </form>`
+                : (() => {
+                    const editRow =
+                      links.find((r) => r.id === this.editingLinkId) ?? null;
+                    return html`<form
+                      class="tax-form inline single"
+                      @submit=${(e: Event) => this.saveLink(e)}
+                    >
+                      <label
+                        >URL
+                        <input
+                          name="url"
+                          type="url"
+                          placeholder="https://…"
+                          .value=${editRow ? String(editRow.label ?? '') : ''}
+                          required
+                      /></label>
+                      <div class="form-actions">
+                        <button class="btn-primary" type="submit">
+                          ${editRow ? 'Save link' : 'Add link'}
+                        </button>
+                        ${
+                          editRow
+                            ? html`<button
+                                class="ghost"
+                                type="button"
+                                @click=${() => {
+                                  this.editingLinkId = null;
+                                  (this as any).requestUpdate?.();
+                                }}
+                              >
+                                Cancel
+                              </button>`
+                            : ''
+                        }
+                      </div>
+                    </form>`;
+                  })()
             }
           </div>
         </div>

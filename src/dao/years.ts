@@ -1,8 +1,6 @@
 export interface YearRow {
   id: number;
   year_key: string;
-  start_date: string;
-  end_date: string;
   is_locked: boolean;
 }
 
@@ -17,7 +15,7 @@ export async function listYears(finance: any): Promise<YearRow[]> {
 
 export async function createYear(
   finance: any,
-  input: { year_key: string; start_date: string; end_date: string },
+  input: { year_key: string },
 ): Promise<number> {
   const res = (await finance.db
     .table(TABLE)

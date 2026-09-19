@@ -9,7 +9,7 @@
     "displayName": "Tax Flow",
     "version": "0.1.1",
     "description": "Australian income tax summary with per-year rates",
-    "themeColor": "#43A047",
+    "themeColor": "#FFEB3B",
     "activationEvents": [
       "onStartup",
       "onView:taxflow"
@@ -51,7 +51,7 @@
           "key": "taxflow.themeColor",
           "type": "string",
           "label": "Accent color (hex).",
-          "default": "#43A047",
+          "default": "#FFEB3B",
           "pattern": "^#[0-9A-Fa-f]{6}$",
           "formatHint": "#RRGGBB",
           "placeholder": "#43A047"
@@ -82,16 +82,6 @@
             "type": "text",
             "nullable": false,
             "description": "e.g. 2026-2027"
-          },
-          {
-            "name": "start_date",
-            "type": "date",
-            "nullable": false
-          },
-          {
-            "name": "end_date",
-            "type": "date",
-            "nullable": false
           },
           {
             "name": "is_locked",

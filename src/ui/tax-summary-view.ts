@@ -16,6 +16,7 @@ import {
   shiftFamilyTiers,
   deductionClaim,
 } from '../services/tax-service.js';
+import { aud, grouped, rawNumber } from '../utils/format.js';
 import { CANONICAL_CARD_ORDER } from './tax-reorder-modal.js';
 
 const Base =
@@ -264,8 +265,8 @@ export class TaxSummaryView extends Base {
       input: {
         year_key: this.yearKey,
         item_key: itemKey,
-        amount: this.num(fd.get('amount')),
-        withheld: this.num(fd.get('withheld')),
+        amount: rawNumber(fd.get('amount') as string),
+        withheld: rawNumber(fd.get('withheld') as string),
       },
     });
     this.editingIncomeKey = null;
@@ -278,7 +279,7 @@ export class TaxSummaryView extends Base {
       input: {
         year_key: this.yearKey,
         item_key: itemKey,
-        cost: this.num(fd.get('cost')),
+        cost: rawNumber(fd.get('cost') as string),
         work_percent: this.num(fd.get('work_percent'), 100),
       },
     });
@@ -291,16 +292,13 @@ export class TaxSummaryView extends Base {
     this.emit('spouse-save', {
       input: {
         year_key: this.yearKey,
-        spouse_income: this.num(fd.get('spouse_income')),
-        fringe_benefits: this.num(fd.get('fringe_benefits')),
-        super_amount: this.num(fd.get('super_amount')),
-        investment_losses: this.num(fd.get('investment_losses')),
-        reportable_super: this.num(fd.get('reportable_super')),
-        has_cover: fd.get('has_cover') === 'on',
-        covered_days: Math.min(
-          366,
-          Math.max(0, Math.round(this.num(fd.get('covered_days'), 365))),
-        ),
+        spouse_income: rawNumber(fd.get('spouse_income') as string),
+        fringe_benefits: rawNumber(fd.get('fringe_benefits') as string),
+        super_amount: rawNumber(fd.get('super_amount') as string),
+        investment_losses: 0,
+        reportable_super: 0,
+        has_cover: true,
+        covered_days: 365,
         children_count: Math.max(
           0,
           Math.round(this.num(fd.get('children_count'))),
@@ -346,6 +344,18 @@ export class TaxSummaryView extends Base {
     </button>`;
   }
 
+  private moneyFocus(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const n = rawNumber(input.value);
+    input.value = Number.isFinite(n) ? String(n) : '';
+    input.select?.();
+  }
+
+  private moneyBlur(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    input.value = grouped(rawNumber(input.value));
+  }
+
   private incomeEditor(): unknown {
     const key = this.editingIncomeKey;
     if (!key || this.locked) return '';
@@ -356,29 +366,33 @@ export class TaxSummaryView extends Base {
         ? 'Wages'
         : (this.incomeTypes.find((it) => it.item_key === key)?.label ?? key);
     return html`<form
-      class="tax-form"
+      class="tax-form inline"
       @submit=${(e: Event) => this.saveIncome(key, e)}
     >
       <label
         >${label} $
         <input
           name="amount"
-          type="number"
-          min="0"
-          step="0.01"
-          value=${String(stored?.amount ?? 0)}
+          type="text"
+          inputmode="decimal"
+          .value=${grouped(stored?.amount ?? 0)}
+          @focus=${(e: Event) => this.moneyFocus(e)}
+          @blur=${(e: Event) => this.moneyBlur(e)}
       /></label>
       <label
         >Withheld $
         <input
           name="withheld"
-          type="number"
-          min="0"
-          step="0.01"
-          value=${String(stored?.withheld ?? 0)}
+          type="text"
+          inputmode="decimal"
+          .value=${grouped(stored?.withheld ?? 0)}
+          @focus=${(e: Event) => this.moneyFocus(e)}
+          @blur=${(e: Event) => this.moneyBlur(e)}
       /></label>
-      <button class="btn-primary" type="submit">Save</button>
-      ${this.cancelButton('editingIncomeKey')}
+      <div class="form-actions">
+        <button class="btn-primary" type="submit">Save</button>
+        ${this.cancelButton('editingIncomeKey')}
+      </div>
     </form>`;
   }
 
@@ -389,17 +403,18 @@ export class TaxSummaryView extends Base {
     const label =
       this.deductionTypes.find((dt) => dt.item_key === key)?.label ?? key;
     return html`<form
-      class="tax-form"
+      class="tax-form inline"
       @submit=${(e: Event) => this.saveDeduction(key, e)}
     >
       <label
         >${label} $
         <input
           name="cost"
-          type="number"
-          min="0"
-          step="0.01"
-          value=${String(stored?.cost ?? 0)}
+          type="text"
+          inputmode="decimal"
+          .value=${grouped(stored?.cost ?? 0)}
+          @focus=${(e: Event) => this.moneyFocus(e)}
+          @blur=${(e: Event) => this.moneyBlur(e)}
       /></label>
       <label
         >Work %
@@ -411,8 +426,10 @@ export class TaxSummaryView extends Base {
           step="0.1"
           value=${String(stored?.work_percent ?? 100)}
       /></label>
-      <button class="btn-primary" type="submit">Save</button>
-      ${this.cancelButton('editingDeductionKey')}
+      <div class="form-actions">
+        <button class="btn-primary" type="submit">Save</button>
+        ${this.cancelButton('editingDeductionKey')}
+      </div>
     </form>`;
   }
 
@@ -466,15 +483,6 @@ export class TaxSummaryView extends Base {
         >
           Item Types
         </button>
-        <select
-          .value=${this.yearKey}
-          @change=${(e: Event) => {
-            this.yearKey = (e.target as HTMLSelectElement).value;
-            void this.load();
-          }}
-        >
-          ${this.years.map((y) => html`<option value=${y.year_key}>${y.year_key}${y.is_locked ? ' (locked)' : ''}</option>`)}
-        </select>
       </div>
       <div class="view-container">
         <div class="view-container-inner cards">
@@ -482,7 +490,7 @@ export class TaxSummaryView extends Base {
           ${this.locked ? html`<p>Locked — figures are read-only.</p>` : ''}
           <div class="section span" style="order:${this.orderOf('income')}">
             <div class="section-header">
-              <h3 class="section-title">Income</h3>
+              <h3 class="section-title">Taxable Income</h3>
             </div>
             <div class="cols">
               <div class="cols-head-full" aria-hidden="true">
@@ -497,8 +505,8 @@ export class TaxSummaryView extends Base {
               </div>
               <div class="tax-row">
                 <span>Wages ${this.payYtd ? '(from Salary)' : '(typed)'}</span
-                ><span class="num">${w.amount.toFixed(2)}</span
-                ><span class="num">${w.withheld.toFixed(2)}</span>
+                ><span class="num">${aud(w.amount)}</span
+                ><span class="num">${aud(w.withheld)}</span>
                 <span
                   >${
                     this.locked || this.payYtd
@@ -515,10 +523,9 @@ export class TaxSummaryView extends Base {
                   );
                   return html`<div class="tax-row">
                     <span>${it.label}</span
+                    ><span class="num">${aud(Number(stored?.amount ?? 0))}</span
                     ><span class="num"
-                      >${Number(stored?.amount ?? 0).toFixed(2)}</span
-                    ><span class="num"
-                      >${Number(stored?.withheld ?? 0).toFixed(2)}</span
+                      >${aud(Number(stored?.withheld ?? 0))}</span
                     >
                     <span
                       >${this.locked ? '' : this.editButton('editingIncomeKey', it.item_key)}</span
@@ -528,8 +535,7 @@ export class TaxSummaryView extends Base {
             </div>
             ${this.incomeEditor()}
             <div class="tax-row total">
-              <span>Total income</span
-              ><span class="num">${t.income.toFixed(2)}</span>
+              <span>Total income</span><span class="num">${aud(t.income)}</span>
             </div>
           </div>
           <div class="section span" style="order:${this.orderOf('deductions')}">
@@ -545,8 +551,7 @@ export class TaxSummaryView extends Base {
                 const workPercent = Number(row?.work_percent ?? 100);
                 const claim = row ? deductionClaim(cost, workPercent) : 0;
                 return html`<div class="tax-row">
-                  <span>${dt.label}</span
-                  ><span class="num">${claim.toFixed(2)}</span>
+                  <span>${dt.label}</span><span class="num">${aud(claim)}</span>
                   <span
                     >${this.locked ? '' : this.editButton('editingDeductionKey', dt.item_key)}</span
                   >
@@ -556,12 +561,12 @@ export class TaxSummaryView extends Base {
             ${this.deductionEditor()}
             <div class="tax-row total">
               <span>Total deductions</span
-              ><span class="num">${t.deductions.toFixed(2)}</span>
+              ><span class="num">${aud(t.deductions)}</span>
             </div>
           </div>
           <div class="section span" style="order:${this.orderOf('spouse')}">
             <div class="section-header">
-              <h3 class="section-title">Spouse</h3>
+              <h3 class="section-title">Spouse and Child Details</h3>
               ${
                 this.locked
                   ? ''
@@ -578,40 +583,16 @@ export class TaxSummaryView extends Base {
             </div>
             <div class="cols">
               <div class="tax-row">
-                <span>Income</span
-                ><span class="num"
-                  >${Number(s.spouse_income ?? 0).toFixed(2)}</span
-                >
+                <span>Taxable Income</span
+                ><span class="num">${aud(Number(s.spouse_income ?? 0))}</span>
               </div>
               <div class="tax-row">
                 <span>Fringe benefits</span
-                ><span class="num"
-                  >${Number(s.fringe_benefits ?? 0).toFixed(2)}</span
-                >
+                ><span class="num">${aud(Number(s.fringe_benefits ?? 0))}</span>
               </div>
               <div class="tax-row">
-                <span>Super</span
-                ><span class="num"
-                  >${Number(s.super_amount ?? 0).toFixed(2)}</span
-                >
-              </div>
-              <div class="tax-row">
-                <span>Investment losses</span
-                ><span class="num"
-                  >${Number(s.investment_losses ?? 0).toFixed(2)}</span
-                >
-              </div>
-              <div class="tax-row">
-                <span>Reportable super</span
-                ><span class="num"
-                  >${Number(s.reportable_super ?? 0).toFixed(2)}</span
-                >
-              </div>
-              <div class="tax-row">
-                <span>Hospital cover</span
-                ><span class="num"
-                  >${(s.has_cover ?? true) ? `Yes (${Number(s.covered_days ?? 365)} days)` : 'No'}</span
-                >
+                <span>Super sacrifices</span
+                ><span class="num">${aud(Number(s.super_amount ?? 0))}</span>
               </div>
               <div class="tax-row">
                 <span>Children</span
@@ -621,76 +602,48 @@ export class TaxSummaryView extends Base {
             <div class="tax-row total">
               <span>Reportable total</span
               ><span class="num"
-                >${(Number(s.spouse_income ?? 0) + Number(s.fringe_benefits ?? 0) + Number(s.super_amount ?? 0)).toFixed(2)}</span
+                >${aud(
+                  Number(s.spouse_income ?? 0) +
+                    Number(s.fringe_benefits ?? 0) +
+                    Number(s.super_amount ?? 0),
+                )}</span
               >
             </div>
             ${
               this.editingSpouse && !this.locked
                 ? html`<form
-                    class="tax-form"
+                    class="tax-form inline"
                     @submit=${(e: Event) => this.saveSpouse(e)}
                   >
                     <label
-                      >Income $
+                      >Taxable Income $
                       <input
                         name="spouse_income"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value=${String(s.spouse_income ?? 0)}
+                        type="text"
+                        inputmode="decimal"
+                        .value=${grouped(s.spouse_income ?? 0)}
+                        @focus=${(e: Event) => this.moneyFocus(e)}
+                        @blur=${(e: Event) => this.moneyBlur(e)}
                     /></label>
                     <label
                       >Fringe benefits $
                       <input
                         name="fringe_benefits"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value=${String(s.fringe_benefits ?? 0)}
+                        type="text"
+                        inputmode="decimal"
+                        .value=${grouped(s.fringe_benefits ?? 0)}
+                        @focus=${(e: Event) => this.moneyFocus(e)}
+                        @blur=${(e: Event) => this.moneyBlur(e)}
                     /></label>
                     <label
-                      >Super $
+                      >Super sacrifices $
                       <input
                         name="super_amount"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value=${String(s.super_amount ?? 0)}
-                    /></label>
-                    <label
-                      >Investment losses $
-                      <input
-                        name="investment_losses"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value=${String(s.investment_losses ?? 0)}
-                    /></label>
-                    <label
-                      >Reportable super $
-                      <input
-                        name="reportable_super"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value=${String(s.reportable_super ?? 0)}
-                    /></label>
-                    <label class="check-row"
-                      ><input
-                        name="has_cover"
-                        type="checkbox"
-                        ?checked=${s.has_cover ?? true}
-                      />
-                      Hospital cover</label
-                    >
-                    <label
-                      >Covered days
-                      <input
-                        name="covered_days"
-                        type="number"
-                        min="0"
-                        max="366"
-                        value=${String(s.covered_days ?? 365)}
+                        type="text"
+                        inputmode="decimal"
+                        .value=${grouped(s.super_amount ?? 0)}
+                        @focus=${(e: Event) => this.moneyFocus(e)}
+                        @blur=${(e: Event) => this.moneyBlur(e)}
                     /></label>
                     <label
                       >Children
@@ -700,60 +653,64 @@ export class TaxSummaryView extends Base {
                         min="0"
                         value=${String(s.children_count ?? 0)}
                     /></label>
-                    <button class="btn-primary" type="submit">
-                      Save spouse
-                    </button>
-                    <button
-                      class="ghost"
-                      type="button"
-                      @click=${() => {
-                        this.editingSpouse = false;
-                        (this as any).requestUpdate();
-                      }}
-                    >
-                      Cancel
-                    </button>
+                    <div class="form-actions">
+                      <button class="btn-primary" type="submit">Save</button>
+                      <button
+                        class="ghost"
+                        type="button"
+                        @click=${() => {
+                          this.editingSpouse = false;
+                          (this as any).requestUpdate();
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </form>`
                 : ''
             }
           </div>
-          <div class="section" style="order:${this.orderOf('mls')}">
+          <div
+            class="section span result-card"
+            style="order:${this.orderOf('result')}"
+          >
             <div class="section-header">
-              <h3 class="section-title">Surcharge (MLS)</h3>
-            </div>
-            <div class="tax-row">
-              <span>MLS amount</span
-              ><span class="num">${b.mls.toFixed(2)}</span>
-            </div>
-          </div>
-          <div class="section span" style="order:${this.orderOf('result')}">
-            <div class="section-header">
-              <h3 class="section-title">Result</h3>
+              <h3 class="section-title">Est. Tax Return</h3>
+              <select
+                class="year-badge"
+                .value=${this.yearKey}
+                @change=${(e: Event) => {
+                  this.yearKey = (e.target as HTMLSelectElement).value;
+                  void this.load();
+                }}
+              >
+                ${this.years.map((y) => html`<option value=${y.year_key}>${y.year_key}${y.is_locked ? ' (locked)' : ''}</option>`)}
+              </select>
             </div>
             <div class="kpi-row">
               <div class="kpi">
                 <div class="kpi-label">Taxable</div>
-                <div class="kpi-value">${t.taxable.toFixed(2)}</div>
+                <div class="kpi-value">${aud(t.taxable)}</div>
               </div>
               <div class="kpi">
                 <div class="kpi-label">Tax</div>
-                <div class="kpi-value">${b.tax.toFixed(2)}</div>
+                <div class="kpi-value">${aud(b.tax)}</div>
               </div>
               <div class="kpi">
                 <div class="kpi-label">Medicare</div>
-                <div class="kpi-value">${b.medicare.toFixed(2)}</div>
+                <div class="kpi-value">${aud(b.medicare)}</div>
               </div>
               <div class="kpi">
                 <div class="kpi-label">Surcharge</div>
-                <div class="kpi-value">${b.mls.toFixed(2)}</div>
+                <div class="kpi-value">${aud(b.mls)}</div>
               </div>
               <div class="kpi">
                 <div class="kpi-label">Withheld</div>
-                <div class="kpi-value">${t.withheld.toFixed(2)}</div>
+                <div class="kpi-value">${aud(t.withheld)}</div>
               </div>
             </div>
             <div class="hero ${b.result >= 0 ? 'refund' : 'owed'}">
-              <div class="hero-value">${Math.abs(b.result).toFixed(2)}</div>
+              <div class="hero-value">${aud(Math.abs(b.result))}</div>
               <div class="hero-caption">
                 ${b.result >= 0 ? 'Refund' : 'Amount owed'}
               </div>
@@ -763,23 +720,25 @@ export class TaxSummaryView extends Base {
             <div class="section-header">
               <h3 class="section-title">Forecast (guess)</h3>
             </div>
-            <label
-              >Weeks so far
-              <input
-                type="number"
-                min="1"
-                max="52"
-                .value=${String(this.weeksElapsed)}
-                @input=${(e: Event) => {
-                  this.weeksElapsed =
-                    Number((e.target as HTMLInputElement).value) || 1;
-                  (this as any).requestUpdate();
-                }}
-            /></label>
+            <div class="tax-form inline single">
+              <label
+                >Weeks so far
+                <input
+                  type="number"
+                  min="1"
+                  max="52"
+                  .value=${String(this.weeksElapsed)}
+                  @input=${(e: Event) => {
+                    this.weeksElapsed =
+                      Number((e.target as HTMLInputElement).value) || 1;
+                    (this as any).requestUpdate();
+                  }}
+              /></label>
+            </div>
             <div class="tax-row">
               <span>Full-year income (avg x 52)</span
               ><span class="num"
-                >${forecastFullYear(t.income / this.weeksElapsed).toFixed(2)}</span
+                >${aud(forecastFullYear(t.income / this.weeksElapsed))}</span
               >
             </div>
           </div>
@@ -787,25 +746,26 @@ export class TaxSummaryView extends Base {
             <div class="section-header">
               <h3 class="section-title">Super top-up planner</h3>
             </div>
-            <label
-              >Extra super $
-              <input
-                type="number"
-                min="0"
-                .value=${String(this.topUp)}
-                @input=${(e: Event) => {
-                  this.topUp =
-                    Number((e.target as HTMLInputElement).value) || 0;
-                  (this as any).requestUpdate();
-                }}
-            /></label>
+            <div class="tax-form inline single">
+              <label
+                >Extra super $
+                <input
+                  type="number"
+                  min="0"
+                  .value=${String(this.topUp)}
+                  @input=${(e: Event) => {
+                    this.topUp =
+                      Number((e.target as HTMLInputElement).value) || 0;
+                    (this as any).requestUpdate();
+                  }}
+              /></label>
+            </div>
             <div class="tax-row">
-              <span>New bill</span
-              ><span class="num">${plan.newBill.toFixed(2)}</span>
+              <span>New bill</span><span class="num">${aud(plan.newBill)}</span>
             </div>
             <div class="tax-row total">
               <span>Extra saving</span
-              ><span class="num">${plan.saving.toFixed(2)}</span>
+              ><span class="num">${aud(plan.saving)}</span>
             </div>
           </div>
           <tax-reorder-modal id="reorder"></tax-reorder-modal>
