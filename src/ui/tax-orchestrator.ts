@@ -1,12 +1,7 @@
 import { LitElement, css, html } from 'lit';
 import { sharedStyles } from '../styles/shared-styles.js';
 import { ExtensionLogger } from 'finance-logger';
-import { upsertIncome } from '../dao/income.js';
-import {
-  createDeduction,
-  updateDeduction,
-  deleteDeduction,
-} from '../dao/deductions.js';
+import { upsertEntry } from '../dao/entries.js';
 import { saveSpouse } from '../dao/spouse.js';
 import { saveRate, copyRates } from '../dao/rates.js';
 import { createItemType, setItemActive } from '../dao/items.js';
@@ -103,25 +98,13 @@ export class TaxOrchestrator extends Base {
     this.addEventListener(
       'income-save',
       guard(async (d) => {
-        await upsertIncome(this.finance, d.input);
+        await upsertEntry(this.finance, { kind: 'income', ...d.input });
       }),
     );
     this.addEventListener(
-      'deduction-create',
+      'deduction-save',
       guard(async (d) => {
-        await createDeduction(this.finance, d.input);
-      }),
-    );
-    this.addEventListener(
-      'deduction-edit',
-      guard(async (d) => {
-        await updateDeduction(this.finance, d.id, d.patch);
-      }),
-    );
-    this.addEventListener(
-      'deduction-delete',
-      guard(async (d) => {
-        await deleteDeduction(this.finance, d.id);
+        await upsertEntry(this.finance, { kind: 'deduction', ...d.input });
       }),
     );
     this.addEventListener(

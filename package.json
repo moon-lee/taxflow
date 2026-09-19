@@ -1,13 +1,13 @@
 {
   "name": "taxflow",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "main": "src/main.ts",
   "financeExtension": {
     "id": "taxflow",
     "displayName": "Tax Flow",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Australian income tax summary with per-year rates",
     "themeColor": "#43A047",
     "activationEvents": [
@@ -66,9 +66,7 @@
         "year-lock",
         "rates-save",
         "income-save",
-        "deduction-create",
-        "deduction-edit",
-        "deduction-delete",
+        "deduction-save",
         "item-create",
         "item-deactivate",
         "spouse-save",
@@ -200,7 +198,7 @@
         ]
       },
       {
-        "name": "taxflow_income",
+        "name": "taxflow_entries",
         "columns": [
           {
             "name": "year_key",
@@ -212,7 +210,22 @@
             "name": "item_key",
             "type": "text",
             "nullable": false,
-            "description": "FK to taxflow_item_types (group=income)"
+            "description": "FK to taxflow_item_types"
+          },
+          {
+            "name": "kind",
+            "type": "text",
+            "nullable": false,
+            "enumOptions": [
+              "income",
+              "deduction"
+            ]
+          },
+          {
+            "name": "label",
+            "type": "text",
+            "nullable": true,
+            "description": "Row label; NULL falls back to the catalog label"
           },
           {
             "name": "amount",
@@ -227,28 +240,6 @@
             "nullable": false,
             "default": 0,
             "min": 0
-          }
-        ]
-      },
-      {
-        "name": "taxflow_deductions",
-        "columns": [
-          {
-            "name": "year_key",
-            "type": "text",
-            "nullable": false,
-            "index": true
-          },
-          {
-            "name": "item_key",
-            "type": "text",
-            "nullable": false,
-            "description": "FK to taxflow_item_types (group=deduction)"
-          },
-          {
-            "name": "label",
-            "type": "text",
-            "nullable": false
           },
           {
             "name": "cost",

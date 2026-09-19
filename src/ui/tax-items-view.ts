@@ -7,8 +7,7 @@ import {
   type ItemGroup,
   type ItemTypeRow,
 } from '../dao/items.js';
-import { listIncome } from '../dao/income.js';
-import { listDeductions } from '../dao/deductions.js';
+import { listEntries } from '../dao/entries.js';
 
 const Base =
   typeof HTMLElement !== 'undefined'
@@ -47,25 +46,26 @@ export class TaxItemsView extends Base {
       ) {
         this.yearKey = this.years[this.years.length - 1].year_key;
       }
-      const [incomeTypes, deductionTypes, offsetTypes, income, deductions] =
+      const [incomeTypes, deductionTypes, offsetTypes, entries] =
         await Promise.all([
           listItemTypes(this.finance, 'income'),
           listItemTypes(this.finance, 'deduction'),
           listItemTypes(this.finance, 'offset'),
-          listIncome(this.finance, this.yearKey),
-          listDeductions(this.finance, this.yearKey),
+          listEntries(this.finance, this.yearKey),
         ]);
       this.types = [
         ...(incomeTypes as ItemTypeRow[]),
         ...(deductionTypes as ItemTypeRow[]),
         ...(offsetTypes as ItemTypeRow[]),
       ];
-      this.incomeKeys = (income as Array<{ item_key: string }>).map(
-        (r) => r.item_key,
-      );
-      this.deductionKeys = (deductions as Array<{ item_key: string }>).map(
-        (r) => r.item_key,
-      );
+      this.incomeKeys = (entries as Array<{ kind: string; item_key: string }>)
+        .filter((r) => r.kind === 'income')
+        .map((r) => r.item_key);
+      this.deductionKeys = (
+        entries as Array<{ kind: string; item_key: string }>
+      )
+        .filter((r) => r.kind === 'deduction')
+        .map((r) => r.item_key);
       this.error = '';
     } catch (e: any) {
       this.error = String(e?.message || e);

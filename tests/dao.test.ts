@@ -5,8 +5,13 @@ import {
   setItemActive,
   listItemTypes,
 } from '../src/dao/items.js';
-import { upsertIncome, listIncome } from '../src/dao/income.js';
-import { createDeduction, listDeductions } from '../src/dao/deductions.js';
+import {
+  listEntries,
+  upsertEntry,
+  createEntry,
+  updateEntry,
+  deleteEntry,
+} from '../src/dao/entries.js';
 import { deductionClaim } from '../src/services/tax-service.js';
 
 function mockFinance() {
@@ -82,39 +87,92 @@ describe('items dao', () => {
   });
 });
 
-describe('income dao', () => {
+describe('entries dao (income kind)', () => {
   it('upserts one row per item per year (sheet: wages 13595.45)', async () => {
     const finance = mockFinance();
-    await upsertIncome(finance, {
+    await upsertEntry(finance, {
       year_key: '2026-2027',
       item_key: 'wages',
+      kind: 'income',
       amount: 13595.45,
       withheld: 2899,
     });
-    await upsertIncome(finance, {
+    await upsertEntry(finance, {
       year_key: '2026-2027',
       item_key: 'wages',
+      kind: 'income',
       amount: 14000,
       withheld: 3000,
     });
-    const rows = await listIncome(finance, '2026-2027');
+    const rows = await listEntries(finance, '2026-2027', 'income');
     expect(rows).toHaveLength(1);
     expect(rows[0].amount).toBe(14000);
   });
 });
 
-describe('deductions dao', () => {
-  it('creates items and claim math matches (sheet: internet 1290 x 40% = 516)', async () => {
+describe('entries dao (deduction kind)', () => {
+  it('upserts one slot per item per year (sheet: work 1290 x 40% = 516)', async () => {
     const finance = mockFinance();
-    await createDeduction(finance, {
+    await upsertEntry(finance, {
       year_key: '2026-2027',
       item_key: 'work',
+      kind: 'deduction',
+      cost: 1290,
+      work_percent: 40,
+    });
+    await upsertEntry(finance, {
+      year_key: '2026-2027',
+      item_key: 'work',
+      kind: 'deduction',
+      cost: 1000,
+      work_percent: 50,
+    });
+    const rows = await listEntries(finance, '2026-2027', 'deduction');
+    expect(rows).toHaveLength(1);
+    expect(deductionClaim(rows[0].cost, rows[0].work_percent)).toBe(500);
+  });
+
+  it('supports row CRUD by id', async () => {
+    const finance = mockFinance();
+    const id = await createEntry(finance, {
+      year_key: '2026-2027',
+      item_key: 'work',
+      kind: 'deduction',
       label: 'Internet',
       cost: 1290,
       work_percent: 40,
     });
-    const rows = await listDeductions(finance, '2026-2027');
+    const rows = await listEntries(finance, '2026-2027', 'deduction');
     expect(rows).toHaveLength(1);
     expect(deductionClaim(rows[0].cost, rows[0].work_percent)).toBe(516);
+    await updateEntry(finance, id, { cost: 1000 });
+    expect((await listEntries(finance, '2026-2027', 'deduction'))[0].cost).toBe(
+      1000,
+    );
+    await deleteEntry(finance, id);
+    expect(await listEntries(finance, '2026-2027', 'deduction')).toHaveLength(
+      0,
+    );
+  });
+
+  it('keeps kinds separate within one table', async () => {
+    const finance = mockFinance();
+    await upsertEntry(finance, {
+      year_key: '2026-2027',
+      item_key: 'wages',
+      kind: 'income',
+      amount: 100,
+      withheld: 10,
+    });
+    await createEntry(finance, {
+      year_key: '2026-2027',
+      item_key: 'work',
+      kind: 'deduction',
+      label: 'Tools',
+      cost: 50,
+      work_percent: 100,
+    });
+    expect(await listEntries(finance, '2026-2027')).toHaveLength(2);
+    expect(await listEntries(finance, '2026-2027', 'income')).toHaveLength(1);
   });
 });

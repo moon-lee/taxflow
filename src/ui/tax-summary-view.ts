@@ -4,8 +4,7 @@ import { taxStyles } from '../styles/taxflow-styles.js';
 import { listYears } from '../dao/years.js';
 import { getRates } from '../dao/rates.js';
 import { listItemTypes, type ItemTypeRow } from '../dao/items.js';
-import { listIncome } from '../dao/income.js';
-import { listDeductions } from '../dao/deductions.js';
+import { listEntries, type EntryRow } from '../dao/entries.js';
 import { getSpouse } from '../dao/spouse.js';
 import {
   taxOnIncome,
@@ -55,7 +54,9 @@ export class TaxSummaryView extends Base {
   payYtd: { gross: number; withheld: number } | null = null;
   topUp = 0;
   weeksElapsed = 9;
-  editingDeductionId: number | null = null;
+  editingIncomeKey: string | null = null;
+  editingDeductionKey: string | null = null;
+  editingSpouse = false;
   cardOrder: string[] = [...CANONICAL_CARD_ORDER];
   error = '';
 
@@ -76,27 +77,32 @@ export class TaxSummaryView extends Base {
       ) {
         this.yearKey = this.years[this.years.length - 1].year_key;
       }
-      const [income, deductions, spouse, rates, incomeTypes, deductionTypes] =
+      const [entries, spouse, rates, incomeTypes, deductionTypes] =
         await Promise.all([
-          listIncome(this.finance, this.yearKey),
-          listDeductions(this.finance, this.yearKey),
+          listEntries(this.finance, this.yearKey),
           getSpouse(this.finance, this.yearKey),
           getRates(this.finance, this.yearKey),
           listItemTypes(this.finance, 'income'),
           listItemTypes(this.finance, 'deduction'),
         ]);
-      this.income = income as Array<{
-        item_key: string;
-        amount: number;
-        withheld: number;
-      }>;
-      this.deductions = deductions as Array<{
-        id: number;
-        item_key: string;
-        label: string;
-        cost: number;
-        work_percent: number;
-      }>;
+      const incomeEntries = (entries as EntryRow[]).filter(
+        (r) => r.kind === 'income',
+      );
+      const deductionEntries = (entries as EntryRow[]).filter(
+        (r) => r.kind === 'deduction',
+      );
+      this.income = incomeEntries.map((r) => ({
+        item_key: r.item_key,
+        amount: r.amount,
+        withheld: r.withheld,
+      }));
+      this.deductions = deductionEntries.map((r) => ({
+        id: r.id,
+        item_key: r.item_key,
+        label: r.label ?? '',
+        cost: r.cost,
+        work_percent: r.work_percent,
+      }));
       this.spouse = spouse;
       this.rates = rates as Array<{
         kind: string;
@@ -262,44 +268,21 @@ export class TaxSummaryView extends Base {
         withheld: this.num(fd.get('withheld')),
       },
     });
+    this.editingIncomeKey = null;
   }
 
-  private createDeduction(e: Event): void {
+  private saveDeduction(itemKey: string, e: Event): void {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
-    this.emit('deduction-create', {
+    this.emit('deduction-save', {
       input: {
         year_key: this.yearKey,
-        item_key: String(fd.get('item_key') ?? 'work'),
-        label: String(fd.get('label') ?? '').trim(),
+        item_key: itemKey,
         cost: this.num(fd.get('cost')),
         work_percent: this.num(fd.get('work_percent'), 100),
       },
     });
-    (e.target as HTMLFormElement).reset();
-  }
-
-  private editDeduction(id: number, e: Event): void {
-    e.preventDefault();
-    const fd = new FormData(e.target as HTMLFormElement);
-    this.emit('deduction-edit', {
-      id,
-      patch: {
-        label: String(fd.get('label') ?? '').trim(),
-        cost: this.num(fd.get('cost')),
-        work_percent: this.num(fd.get('work_percent'), 100),
-      },
-    });
-    this.editingDeductionId = null;
-  }
-
-  private deleteDeduction(id: number): void {
-    if (
-      typeof window !== 'undefined' &&
-      !window.confirm('Delete this deduction?')
-    )
-      return;
-    this.emit('deduction-delete', { id });
+    this.editingDeductionKey = null;
   }
 
   private saveSpouse(e: Event): void {
@@ -324,6 +307,7 @@ export class TaxSummaryView extends Base {
         ),
       },
     });
+    this.editingSpouse = false;
   }
 
   private openReorder(): void {
@@ -390,190 +374,294 @@ export class TaxSummaryView extends Base {
         <div class="view-container-inner cards">
           ${this.error ? html`<p class="field-error">Error: ${this.error}</p>` : ''}
           ${this.locked ? html`<p>Locked — figures are read-only.</p>` : ''}
-          <div class="section" style="order:${this.orderOf('income')}">
+          <div class="section tall" style="order:${this.orderOf('income')}">
             <div class="section-header">
               <h3 class="section-title">Income</h3>
             </div>
             <div class="tax-row">
               <span>Wages ${this.payYtd ? '(from Salary)' : '(typed)'}</span
               ><span class="num">${w.amount.toFixed(2)}</span>
+              <span
+                >${
+                  this.locked || this.payYtd
+                    ? ''
+                    : html`<button
+                        class="icon-btn"
+                        @click=${() => {
+                          this.editingIncomeKey =
+                            this.editingIncomeKey === 'wages' ? null : 'wages';
+                          (this as any).requestUpdate();
+                        }}
+                      >
+                        ⋮
+                      </button>`
+                }</span
+              >
             </div>
-            ${this.income.filter((r) => r.item_key !== 'wages').map((r) => html`<div class="tax-row"><span>${this.labels[r.item_key] ?? r.item_key}</span><span class="num">${Number(r.amount).toFixed(2)}</span></div>`)}
+            ${
+              this.editingIncomeKey === 'wages' && !this.locked && !this.payYtd
+                ? html`<form
+                    class="tax-form"
+                    @submit=${(e: Event) => this.saveIncome('wages', e)}
+                  >
+                    <label
+                      >Amount $
+                      <input
+                        name="amount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value=${String(
+                          this.income.find((r) => r.item_key === 'wages')
+                            ?.amount ?? 0,
+                        )}
+                    /></label>
+                    <label
+                      >Withheld $
+                      <input
+                        name="withheld"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value=${String(
+                          this.income.find((r) => r.item_key === 'wages')
+                            ?.withheld ?? 0,
+                        )}
+                    /></label>
+                    <button class="btn-primary" type="submit">Save</button>
+                    <button
+                      class="ghost"
+                      type="button"
+                      @click=${() => {
+                        this.editingIncomeKey = null;
+                        (this as any).requestUpdate();
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </form>`
+                : ''
+            }
+            ${this.incomeTypes
+              .filter((it) => it.item_key !== 'wages')
+              .map((it) => {
+                const stored = this.income.find(
+                  (r) => r.item_key === it.item_key,
+                );
+                const amount = Number(stored?.amount ?? 0);
+                const withheld = Number(stored?.withheld ?? 0);
+                return html`<div class="tax-row">
+                    <span>${it.label}</span
+                    ><span class="num">${amount.toFixed(2)}</span>
+                    <span
+                      >${
+                        this.locked
+                          ? ''
+                          : html`<button
+                              class="icon-btn"
+                              @click=${() => {
+                                this.editingIncomeKey =
+                                  this.editingIncomeKey === it.item_key
+                                    ? null
+                                    : it.item_key;
+                                (this as any).requestUpdate();
+                              }}
+                            >
+                              ⋮
+                            </button>`
+                      }</span
+                    >
+                  </div>
+                  ${
+                    this.editingIncomeKey === it.item_key && !this.locked
+                      ? html`<form
+                          class="tax-form"
+                          @submit=${(e: Event) => this.saveIncome(it.item_key, e)}
+                        >
+                          <label
+                            >Amount $
+                            <input
+                              name="amount"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value=${String(amount)}
+                          /></label>
+                          <label
+                            >Withheld $
+                            <input
+                              name="withheld"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value=${String(withheld)}
+                          /></label>
+                          <button class="btn-primary" type="submit">
+                            Save
+                          </button>
+                          <button
+                            class="ghost"
+                            type="button"
+                            @click=${() => {
+                              this.editingIncomeKey = null;
+                              (this as any).requestUpdate();
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </form>`
+                      : ''
+                  }`;
+              })}
             <div class="tax-row total">
               <span>Total income</span
               ><span class="num">${t.income.toFixed(2)}</span>
             </div>
-            ${
-              this.locked
-                ? ''
-                : this.incomeTypes.map((it) => {
-                    const row = this.income.find(
-                      (r) => r.item_key === it.item_key,
-                    );
-                    return html`<form
-                      class="tax-form"
-                      @submit=${(e: Event) => this.saveIncome(it.item_key, e)}
-                    >
-                      <label
-                        >${it.label} $
-                        <input
-                          name="amount"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value=${String(row?.amount ?? 0)}
-                      /></label>
-                      <label
-                        >Withheld $
-                        <input
-                          name="withheld"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value=${String(row?.withheld ?? 0)}
-                      /></label>
-                      <button class="btn-primary" type="submit">Save</button>
-                    </form>`;
-                  })
-            }
           </div>
           <div class="section" style="order:${this.orderOf('deductions')}">
             <div class="section-header">
               <h3 class="section-title">Deductions</h3>
             </div>
-            ${this.deductions.map(
-              (r) =>
-                html`<div class="tax-row">
-                    <span>${r.label} (${r.work_percent}%)</span
-                    ><span class="num"
-                      >${deductionClaim(Number(r.cost), Number(r.work_percent)).toFixed(2)}</span
-                    >
-                  </div>
-                  ${
-                    this.locked
-                      ? ''
-                      : this.editingDeductionId === r.id
-                        ? html`<form
-                            class="tax-form"
-                            @submit=${(e: Event) => this.editDeduction(r.id, e)}
-                          >
-                            <label
-                              >Label
-                              <input name="label" value=${r.label} required
-                            /></label>
-                            <label
-                              >Cost $
-                              <input
-                                name="cost"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value=${String(r.cost)}
-                                required
-                            /></label>
-                            <label
-                              >Work %
-                              <input
-                                name="work_percent"
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.1"
-                                value=${String(r.work_percent)}
-                                required
-                            /></label>
-                            <button class="btn-primary" type="submit">
-                              Save
-                            </button>
-                            <button
-                              class="ghost"
-                              type="button"
-                              @click=${() => {
-                                this.editingDeductionId = null;
-                                (this as any).requestUpdate();
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </form>`
+            ${this.deductionTypes.map((dt) => {
+              const row = this.deductions.find(
+                (r) => r.item_key === dt.item_key,
+              );
+              const cost = Number(row?.cost ?? 0);
+              const workPercent = Number(row?.work_percent ?? 100);
+              const claim = row ? deductionClaim(cost, workPercent) : 0;
+              return html`<div class="tax-row">
+                  <span>${dt.label}</span
+                  ><span class="num">${claim.toFixed(2)}</span>
+                  <span
+                    >${
+                      this.locked
+                        ? ''
                         : html`<button
-                              class="ghost"
-                              @click=${() => {
-                                this.editingDeductionId = r.id;
-                                (this as any).requestUpdate();
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              class="ghost"
-                              @click=${() => this.deleteDeduction(r.id)}
-                            >
-                              Delete
-                            </button>`
-                  }`,
-            )}
+                            class="icon-btn"
+                            @click=${() => {
+                              this.editingDeductionKey =
+                                this.editingDeductionKey === dt.item_key
+                                  ? null
+                                  : dt.item_key;
+                              (this as any).requestUpdate();
+                            }}
+                          >
+                            ⋮
+                          </button>`
+                    }</span
+                  >
+                </div>
+                ${
+                  this.editingDeductionKey === dt.item_key && !this.locked
+                    ? html`<form
+                        class="tax-form"
+                        @submit=${(e: Event) => this.saveDeduction(dt.item_key, e)}
+                      >
+                        <label
+                          >Cost $
+                          <input
+                            name="cost"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value=${String(cost)}
+                        /></label>
+                        <label
+                          >Work %
+                          <input
+                            name="work_percent"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            value=${String(workPercent)}
+                        /></label>
+                        <button class="btn-primary" type="submit">Save</button>
+                        <button
+                          class="ghost"
+                          type="button"
+                          @click=${() => {
+                            this.editingDeductionKey = null;
+                            (this as any).requestUpdate();
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </form>`
+                    : ''
+                }`;
+            })}
             <div class="tax-row total">
               <span>Total deductions</span
               ><span class="num">${t.deductions.toFixed(2)}</span>
             </div>
-            ${
-              this.locked
-                ? ''
-                : html`<form
-                    class="tax-form"
-                    @submit=${(e: Event) => this.createDeduction(e)}
-                  >
-                    <label
-                      >Type
-                      <select name="item_key">
-                        ${this.deductionTypes.map((dt) => html`<option value=${dt.item_key}>${dt.label}</option>`)}
-                      </select></label
-                    >
-                    <label
-                      >Label
-                      <input name="label" placeholder="Internet" required
-                    /></label>
-                    <label
-                      >Cost $
-                      <input
-                        name="cost"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        required
-                    /></label>
-                    <label
-                      >Work %
-                      <input
-                        name="work_percent"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.1"
-                        value="100"
-                        required
-                    /></label>
-                    <button class="btn-primary" type="submit">
-                      Add deduction
-                    </button>
-                  </form>`
-            }
           </div>
           <div class="section" style="order:${this.orderOf('spouse')}">
             <div class="section-header">
               <h3 class="section-title">Spouse</h3>
+              ${
+                this.locked
+                  ? ''
+                  : html`<button
+                      class="icon-btn"
+                      @click=${() => {
+                        this.editingSpouse = !this.editingSpouse;
+                        (this as any).requestUpdate();
+                      }}
+                    >
+                      ⋮
+                    </button>`
+              }
             </div>
             <div class="tax-row">
+              <span>Income</span
+              ><span class="num"
+                >${Number(s.spouse_income ?? 0).toFixed(2)}</span
+              >
+            </div>
+            <div class="tax-row">
+              <span>Fringe benefits</span
+              ><span class="num"
+                >${Number(s.fringe_benefits ?? 0).toFixed(2)}</span
+              >
+            </div>
+            <div class="tax-row">
+              <span>Super</span
+              ><span class="num"
+                >${Number(s.super_amount ?? 0).toFixed(2)}</span
+              >
+            </div>
+            <div class="tax-row">
+              <span>Investment losses</span
+              ><span class="num"
+                >${Number(s.investment_losses ?? 0).toFixed(2)}</span
+              >
+            </div>
+            <div class="tax-row">
+              <span>Reportable super</span
+              ><span class="num"
+                >${Number(s.reportable_super ?? 0).toFixed(2)}</span
+              >
+            </div>
+            <div class="tax-row">
+              <span>Hospital cover</span
+              ><span class="num"
+                >${(s.has_cover ?? true) ? `Yes (${Number(s.covered_days ?? 365)} days)` : 'No'}</span
+              >
+            </div>
+            <div class="tax-row">
+              <span>Children</span
+              ><span class="num">${Number(s.children_count ?? 0)}</span>
+            </div>
+            <div class="tax-row total">
               <span>Reportable total</span
               ><span class="num"
                 >${(Number(s.spouse_income ?? 0) + Number(s.fringe_benefits ?? 0) + Number(s.super_amount ?? 0)).toFixed(2)}</span
               >
             </div>
             ${
-              this.locked
-                ? ''
-                : html`<form
+              this.editingSpouse && !this.locked
+                ? html`<form
                     class="tax-form"
                     @submit=${(e: Event) => this.saveSpouse(e)}
                   >
@@ -650,7 +738,18 @@ export class TaxSummaryView extends Base {
                     <button class="btn-primary" type="submit">
                       Save spouse
                     </button>
+                    <button
+                      class="ghost"
+                      type="button"
+                      @click=${() => {
+                        this.editingSpouse = false;
+                        (this as any).requestUpdate();
+                      }}
+                    >
+                      Cancel
+                    </button>
                   </form>`
+                : ''
             }
           </div>
           <div class="section" style="order:${this.orderOf('mls')}">

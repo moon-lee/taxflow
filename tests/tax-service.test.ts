@@ -167,22 +167,33 @@ describe('tax service (sheet numbers)', () => {
         label: null,
       });
     }
-    await finance.db.table('taxflow_income').insert({
+    await finance.db.table('taxflow_entries').insert({
       year_key: '2026-2027',
       item_key: 'wages',
+      kind: 'income',
+      label: null,
       amount: 13595.45,
       withheld: 2899,
+      cost: 0,
+      work_percent: 100,
     });
-    await finance.db.table('taxflow_income').insert({
+    await finance.db.table('taxflow_entries').insert({
       year_key: '2026-2027',
       item_key: 'interest',
+      kind: 'income',
+      label: null,
       amount: 5.94,
       withheld: 0,
+      cost: 0,
+      work_percent: 100,
     });
-    await finance.db.table('taxflow_deductions').insert({
+    await finance.db.table('taxflow_entries').insert({
       year_key: '2026-2027',
       item_key: 'work',
+      kind: 'deduction',
       label: 'Internet',
+      amount: 0,
+      withheld: 0,
       cost: 1290,
       work_percent: 40,
     });

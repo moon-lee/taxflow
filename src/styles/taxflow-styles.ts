@@ -7,6 +7,7 @@ export const taxStyles = css`
     grid-template-columns: 1fr 1fr;
     gap: var(--ff-space-4, 16px);
     align-items: stretch;
+    grid-auto-flow: dense;
   }
   .cards .section {
     margin-bottom: 0;
@@ -18,6 +19,15 @@ export const taxStyles = css`
   }
   .cards .section.span {
     grid-column: 1 / -1;
+  }
+  /* Modal element lives inside .cards but must not take a grid cell. */
+  .cards > tax-reorder-modal {
+    display: contents;
+  }
+  /* Income card spans three rows, pinned left: deductions / spouse / MLS stack right. */
+  .cards .section.tall {
+    grid-row: span 3;
+    grid-column: 1;
   }
   /* Label/value rows */
   .tax-row {
@@ -137,6 +147,21 @@ export const taxStyles = css`
   .check-row input {
     width: auto;
   }
+  /* Compact row-menu button (⋮): touch-friendly but visually quiet. */
+  .icon-btn {
+    background: transparent;
+    color: var(--ff-text-muted, #858585);
+    border: 1px solid var(--ff-border, #3e3e3e);
+    border-radius: var(--ff-radius-md, 4px);
+    padding: 6px 12px;
+    font-size: var(--ff-font-lg, 15px);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .icon-btn:hover {
+    color: var(--ff-text-strong, #ffffff);
+    border-color: var(--ff-accent, #007acc);
+  }
   /* Tables (spec §4) */
   .tax-table {
     width: 100%;
@@ -184,6 +209,10 @@ export const taxStyles = css`
       grid-template-columns: 1fr;
     }
     .cards .section.span {
+      grid-column: auto;
+    }
+    .cards .section.tall {
+      grid-row: auto;
       grid-column: auto;
     }
     .tax-form {

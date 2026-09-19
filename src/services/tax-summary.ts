@@ -1,5 +1,4 @@
-import { listIncome } from '../dao/income.js';
-import { listDeductions } from '../dao/deductions.js';
+import { listEntries } from '../dao/entries.js';
 import { getSpouse } from '../dao/spouse.js';
 import { getRates } from '../dao/rates.js';
 import {
@@ -42,12 +41,13 @@ export async function loadEstimate(
   extraSuper = 0,
 ): Promise<TaxEstimate | null> {
   try {
-    const [incomeRows, deductionRows, spouse, rateRows] = await Promise.all([
-      listIncome(finance, yearKey),
-      listDeductions(finance, yearKey),
+    const [entries, spouse, rateRows] = await Promise.all([
+      listEntries(finance, yearKey),
       getSpouse(finance, yearKey),
       getRates(finance, yearKey),
     ]);
+    const incomeRows = entries.filter((r) => r.kind === 'income');
+    const deductionRows = entries.filter((r) => r.kind === 'deduction');
     if (incomeRows.length === 0 && deductionRows.length === 0) return null;
     const typedWages = (
       incomeRows as Array<{
