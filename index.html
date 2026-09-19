@@ -59,6 +59,19 @@
       }
 
       switcher.addEventListener('change', (e) => mountView(+e.target.value));
+      // Dev emulation of host requestMount: retarget the live orchestrator.
+      window.addEventListener('mock-request-mount', (e) => {
+        const detail = e.detail ?? {};
+        const orch = document.querySelector('#app tax-orchestrator');
+        if (orch && typeof orch.init === 'function') {
+          orch.init(finance, { viewId: detail.viewId, ...detail });
+          return;
+        }
+        const ix = VIEWS.findIndex(
+          (v) => v.tag === detail.view || v.tag === `${detail.view}-view`,
+        );
+        if (ix >= 0) mountView(ix);
+      });
       await mountView(0);
     </script>
   </body>
