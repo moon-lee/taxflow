@@ -1,13 +1,13 @@
 {
   "name": "taxflow",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "main": "src/main.ts",
   "financeExtension": {
     "id": "taxflow",
     "displayName": "Tax Flow",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "Australian income tax summary with per-year rates",
     "themeColor": "#FFEB3B",
     "activationEvents": [
