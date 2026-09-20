@@ -210,7 +210,7 @@ export class TaxSummaryView extends Base {
     return { income, withheld, deductions, taxable };
   }
 
-  private bill(): {
+  private bill(taxableOverride?: number): {
     tax: number;
     medicare: number;
     mls: number;
@@ -218,6 +218,7 @@ export class TaxSummaryView extends Base {
     result: number;
   } {
     const t = this.totals();
+    const taxable = taxableOverride ?? t.taxable;
     const brackets = this.rates
       .filter((r) => r.kind === 'bracket')
       .map((r) => ({
@@ -228,13 +229,13 @@ export class TaxSummaryView extends Base {
       }));
     const medicareRate =
       this.rates.find((r) => r.kind === 'medicare')?.rate ?? 0.02;
-    const tax = brackets.length > 0 ? taxOnIncome(t.taxable, brackets) : 0;
-    const medicare = medicareLevy(t.taxable, medicareRate);
+    const tax = brackets.length > 0 ? taxOnIncome(taxable, brackets) : 0;
+    const medicare = medicareLevy(taxable, medicareRate);
     const spouseIncome = Number(this.spouse?.spouse_income ?? 0);
     const fringe = Number(this.spouse?.fringe_benefits ?? 0);
     const invLoss = Number(this.spouse?.investment_losses ?? 0);
     const repSuper = Number(this.spouse?.reportable_super ?? 0);
-    const mlsIncome = t.taxable + spouseIncome + fringe + invLoss + repSuper;
+    const mlsIncome = taxable + spouseIncome + fringe + invLoss + repSuper;
     const hasSpouse =
       spouseIncome > 0 ||
       (this.spouse != null && Number(this.spouse?.children_count ?? 0) > 0);
@@ -464,6 +465,9 @@ export class TaxSummaryView extends Base {
         : [{ from: 0, to: null, base: 0, rate: 0 }],
       medicareRate,
     );
+    const currentBill = b.total;
+    const estimatedBill = this.bill(plan.adjustedTaxable);
+    const estimatedReturn = estimatedBill.result;
     const w = this.wages();
     const s = this.spouse ?? {};
     return html`
@@ -775,12 +779,23 @@ export class TaxSummaryView extends Base {
                   }}
               /></label>
             </div>
-            <div class="tax-row">
-              <span>New bill</span><span class="num">${aud(plan.newBill)}</span>
+            <div class="tax-row planner-bills">
+              <div class="planner-bill">
+                <span>Current Tax Bill</span
+                ><span class="num">${aud(currentBill)}</span>
+              </div>
+              <div class="planner-bill">
+                <span>Est. Tax Bill with extra super</span
+                ><span class="num">${aud(estimatedBill.total)}</span>
+              </div>
             </div>
-            <div class="tax-row total">
-              <span>Extra saving</span
-              ><span class="num">${aud(plan.saving)}</span>
+            <div
+              class="tax-row total ${
+                estimatedReturn >= 0 ? 'return-positive' : 'return-negative'
+              }"
+            >
+              <span>Est. Tax Return</span
+              ><span class="num">${aud(estimatedReturn)}</span>
             </div>
           </div>
           <tax-reorder-modal id="reorder"></tax-reorder-modal>

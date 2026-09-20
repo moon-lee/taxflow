@@ -110,6 +110,46 @@ export const taxStyles = css`
     text-align: right;
     white-space: nowrap;
   }
+  .planner-bills {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--ff-space-3, 12px);
+    align-items: stretch;
+  }
+  .planner-bill {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--ff-space-3, 12px);
+    min-width: 0;
+    padding: 8px 10px;
+    background: var(--ff-bg-subpanel, #2a2a2a);
+    border: 1px solid var(--ff-border, #3e3e3e);
+    border-radius: var(--ff-radius-md, 4px);
+  }
+  .planner-bill > span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .tax-row.return-positive {
+    background: var(--ff-bg-subpanel, #2a2a2a);
+    border: 1px solid var(--ff-success, #4ec9b0);
+    border-radius: var(--ff-radius-md, 4px);
+  }
+  .tax-row.return-positive > span {
+    padding: 0 10px;
+  }
+  .tax-row.return-positive .num {
+    color: var(--ff-success, #4ec9b0);
+  }
+  .tax-row.return-negative {
+    background: var(--ff-warning-bg, #3a2e0a);
+    border: 1px solid var(--ff-warning, #cca700);
+    border-radius: var(--ff-radius-md, 4px);
+  }
+  .tax-row.return-negative .num {
+    color: var(--ff-warning-text, #ffd866);
+  }
   /* Accent top edge on all cards. */
   .cards .section {
     border-top: 3px solid var(--ff-accent, #007acc);
