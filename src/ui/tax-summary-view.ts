@@ -12,7 +12,6 @@ import {
   mlsAmount,
   refund,
   forecastFullYear,
-  superTopUp,
   shiftFamilyTiers,
   deductionClaim,
 } from '../services/tax-service.js';
@@ -52,9 +51,24 @@ export class TaxSummaryView extends Base {
   labels: Record<string, string> = {};
   incomeTypes: ItemTypeRow[] = [];
   deductionTypes: ItemTypeRow[] = [];
-  payYtd: { gross: number; withheld: number } | null = null;
-  topUp = 0;
-  weeksElapsed = 9;
+  payYtd: { gross: number; withheld: number; count: number } | null = null;
+  showForecast = true;
+  showSuper = true;
+
+  private get weeksElapsed(): number {
+    const m = /^(\d{4})-(\d{4})$/.exec(this.yearKey);
+    if (!m) return 1;
+    const start = Date.parse(`${m[1]}-07-01T00:00:00Z`);
+    const end = Date.parse(`${m[2]}-06-30T00:00:00Z`);
+    if (Number.isNaN(start) || Number.isNaN(end)) return 1;
+    const now = Date.now();
+    if (now >= end) return 52;
+    if (now <= start) return 1;
+    return Math.min(
+      52,
+      Math.max(1, Math.floor((now - start) / (7 * 86400000)) + 1),
+    );
+  }
   editingIncomeKey: string | null = null;
   editingDeductionKey: string | null = null;
   editingSpouse = false;
@@ -143,12 +157,26 @@ export class TaxSummaryView extends Base {
         const ytd = (await this.finance.services?.invoke(
           'pay',
           'getYearToDateSummary',
-          {},
-        )) as { gross: number; withheld: number } | null;
-        this.payYtd =
-          ytd && Number.isFinite(Number(ytd.gross))
-            ? { gross: Number(ytd.gross), withheld: Number(ytd.withheld ?? 0) }
-            : null;
+          ['07-01', undefined, this.yearKey],
+        )) as {
+          gross: number;
+          payg?: number;
+          withheld?: number;
+          payg_withholding?: number;
+          count?: number;
+        } | null;
+        const gross = Number(ytd?.gross);
+        if (ytd && Number.isFinite(gross)) {
+          this.payYtd = {
+            gross,
+            withheld: Number(
+              ytd.payg ?? ytd.withheld ?? ytd.payg_withholding ?? 0,
+            ),
+            count: Number(ytd.count ?? 0),
+          };
+        } else {
+          this.payYtd = null;
+        }
       } catch {
         this.payYtd = null;
       }
@@ -210,6 +238,12 @@ export class TaxSummaryView extends Base {
     return { income, withheld, deductions, taxable };
   }
 
+  private personalSuper(): number {
+    const row = this.deductions.find((r) => r.item_key === 'super-personal');
+    if (!row) return 0;
+    return deductionClaim(Number(row.cost), Number(row.work_percent));
+  }
+
   private bill(taxableOverride?: number): {
     tax: number;
     medicare: number;
@@ -257,6 +291,47 @@ export class TaxSummaryView extends Base {
         : 0;
     const total = tax + medicare + mls;
     return { tax, medicare, mls, total, result: refund(t.withheld, total) };
+  }
+
+  private forecast(): {
+    basis: number;
+    basisLabel: string;
+    fullYearIncome: number;
+    fullYearWithheld: number;
+    fullYearTaxable: number;
+    billTotal: number;
+    estReturn: number;
+  } {
+    const t = this.totals();
+    const w = this.wages();
+    const other = this.income.filter((r) => r.item_key !== 'wages');
+    const otherIncome = other.reduce((n, r) => n + Number(r.amount), 0);
+    const otherWithheld = other.reduce((n, r) => n + Number(r.withheld), 0);
+    const payCount = Number(this.payYtd?.count ?? 0);
+    const basis =
+      payCount > 0
+        ? payCount
+        : Math.min(52, Math.max(1, this.weeksElapsed || 1));
+    const fullYearWages = forecastFullYear(w.amount / basis);
+    const fullYearWagesWithheld = forecastFullYear(w.withheld / basis);
+    const fullYearIncome =
+      Math.round((fullYearWages + otherIncome) * 100) / 100;
+    const fullYearWithheld =
+      Math.round((fullYearWagesWithheld + otherWithheld) * 100) / 100;
+    const fullYearTaxable = Math.max(
+      0,
+      Math.round((fullYearIncome - t.deductions) * 100) / 100,
+    );
+    const fullBill = this.bill(fullYearTaxable);
+    return {
+      basis,
+      basisLabel: payCount > 0 ? `${payCount} payslips` : 'manual weeks',
+      fullYearIncome,
+      fullYearWithheld,
+      fullYearTaxable,
+      billTotal: fullBill.total,
+      estReturn: refund(fullYearWithheld, fullBill.total),
+    };
   }
 
   private saveIncome(itemKey: string, e: Event): void {
@@ -447,29 +522,18 @@ export class TaxSummaryView extends Base {
     if (typeof HTMLElement === 'undefined') return html``;
     const t = this.totals();
     const b = this.bill();
-    const brackets = this.rates
-      .filter((r) => r.kind === 'bracket')
-      .map((r) => ({
-        from: r.limit_from,
-        to: r.limit_to,
-        base: r.base_amount,
-        rate: r.rate,
-      }));
-    const medicareRate =
-      this.rates.find((r) => r.kind === 'medicare')?.rate ?? 0.02;
-    const plan = superTopUp(
-      t.taxable,
-      this.topUp,
-      brackets.length > 0
-        ? brackets
-        : [{ from: 0, to: null, base: 0, rate: 0 }],
-      medicareRate,
+    const superClaim = this.personalSuper();
+    const taxableExSuper = Math.max(
+      0,
+      Math.round((t.income - (t.deductions - superClaim)) * 100) / 100,
     );
-    const currentBill = b.total;
-    const estimatedBill = this.bill(plan.adjustedTaxable);
-    const estimatedReturn = estimatedBill.result;
+    const billNoSuper = this.bill(taxableExSuper);
+    const currentBill = billNoSuper.total;
+    const estimatedBill = b;
+    const estimatedReturn = b.result;
     const w = this.wages();
     const s = this.spouse ?? {};
+    const f = this.forecast();
     return html`
       <div class="topbar">
         <span class="crumb-current">Tax Summary</span>
@@ -508,12 +572,18 @@ export class TaxSummaryView extends Base {
                 </div>
               </div>
               <div class="tax-row">
-                <span>Wages ${this.payYtd ? '(from Salary)' : '(typed)'}</span
+                <span
+                  >Wages
+                  ${
+                    Number(this.payYtd?.count ?? 0) > 0
+                      ? `(live · ${this.payYtd?.count} payslips)`
+                      : '(typed)'
+                  }</span
                 ><span class="num">${aud(w.amount)}</span
                 ><span class="num">${aud(w.withheld)}</span>
                 <span
                   >${
-                    this.locked || this.payYtd
+                    this.locked || Number(this.payYtd?.count ?? 0) > 0
                       ? ''
                       : this.editButton('editingIncomeKey', 'wages')
                   }</span
@@ -734,69 +804,94 @@ export class TaxSummaryView extends Base {
           </div>
           <div class="section" style="order:${this.orderOf('forecast')}">
             <div class="section-header">
-              <h3 class="section-title">Forecast (guess)</h3>
-            </div>
-            <div class="tax-form inline single">
-              <label
-                >Weeks so far
+              <h3 class="section-title">Forecast</h3>
+              ${
+                Number(this.payYtd?.count ?? 0) > 0
+                  ? html`<span class="pill open" title="Live salary data">
+                      Live · ${this.payYtd?.count}
+                    </span>`
+                  : html`<span class="pill" title="No live salary data">
+                      No live
+                    </span>`
+              }
+              <label class="switch" title="Show/hide forecast">
                 <input
-                  type="number"
-                  min="1"
-                  max="52"
-                  .value=${String(this.weeksElapsed)}
-                  @input=${(e: Event) => {
-                    this.weeksElapsed =
-                      Number((e.target as HTMLInputElement).value) || 1;
+                  type="checkbox"
+                  ?checked=${this.showForecast}
+                  @change=${(e: Event) => {
+                    this.showForecast = (e.target as HTMLInputElement).checked;
                     (this as any).requestUpdate();
                   }}
-              /></label>
+                />
+                <span class="slider"></span>
+              </label>
             </div>
-            <div class="tax-row">
-              <span>Full-year income (avg x 52)</span
-              ><span class="num"
-                >${aud(forecastFullYear(t.income / this.weeksElapsed))}</span
-              >
-            </div>
+            ${
+              this.showForecast
+                ? html` <div class="tax-row">
+                      <span>Full-year income</span
+                      ><span class="num">${aud(f.fullYearIncome)}</span>
+                    </div>
+                    <div class="tax-row">
+                      <span>Full-year withheld</span
+                      ><span class="num">${aud(f.fullYearWithheld)}</span>
+                    </div>
+                    <div class="tax-row">
+                      <span>Full-year taxable</span
+                      ><span class="num">${aud(f.fullYearTaxable)}</span>
+                    </div>
+                    <div class="tax-row">
+                      <span>Est. full-year bill</span
+                      ><span class="num">${aud(f.billTotal)}</span>
+                    </div>
+                    <div
+                      class="tax-row total ${
+                        f.estReturn >= 0 ? 'return-positive' : 'return-negative'
+                      }"
+                    >
+                      <span>Est. full-year return</span
+                      ><span class="num">${aud(f.estReturn)}</span>
+                    </div>`
+                : ''
+            }
           </div>
           <div class="section" style="order:${this.orderOf('planner')}">
             <div class="section-header">
               <h3 class="section-title">Super top-up planner</h3>
-            </div>
-            <div class="tax-form inline single">
-              <label
-                >Extra super $
+              <label class="switch" title="Show/hide planner">
                 <input
-                  type="text"
-                  inputmode="decimal"
-                  .value=${grouped(this.topUp)}
-                  @focus=${(e: Event) => this.moneyFocus(e)}
-                  @blur=${(e: Event) => this.moneyBlur(e)}
-                  @input=${(e: Event) => {
-                    this.topUp = rawNumber(
-                      (e.target as HTMLInputElement).value,
-                    );
+                  type="checkbox"
+                  ?checked=${this.showSuper}
+                  @change=${(e: Event) => {
+                    this.showSuper = (e.target as HTMLInputElement).checked;
                     (this as any).requestUpdate();
                   }}
-              /></label>
+                />
+                <span class="slider"></span>
+              </label>
             </div>
-            <div class="tax-row planner-bills">
-              <div class="planner-bill">
-                <span>Current Tax Bill</span
-                ><span class="num">${aud(currentBill)}</span>
-              </div>
-              <div class="planner-bill">
-                <span>Est. Tax Bill with extra super</span
-                ><span class="num">${aud(estimatedBill.total)}</span>
-              </div>
-            </div>
-            <div
-              class="tax-row total ${
-                estimatedReturn >= 0 ? 'return-positive' : 'return-negative'
-              }"
-            >
-              <span>Est. Tax Return</span
-              ><span class="num">${aud(estimatedReturn)}</span>
-            </div>
+            ${
+              this.showSuper
+                ? html` <div class="tax-row">
+                      <span>Tax Bill without super</span
+                      ><span class="num">${aud(currentBill)}</span>
+                    </div>
+                    <div class="tax-row">
+                      <span>Est. Tax Bill with personal super</span
+                      ><span class="num">${aud(estimatedBill.total)}</span>
+                    </div>
+                    <div
+                      class="tax-row total ${
+                        estimatedReturn >= 0
+                          ? 'return-positive'
+                          : 'return-negative'
+                      }"
+                    >
+                      <span>Est. Tax Return</span
+                      ><span class="num">${aud(estimatedReturn)}</span>
+                    </div>`
+                : ''
+            }
           </div>
           <tax-reorder-modal id="reorder"></tax-reorder-modal>
         </div>

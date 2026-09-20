@@ -65,6 +65,7 @@
         "year-copy",
         "year-lock",
         "rates-save",
+        "rates-delete",
         "income-save",
         "deduction-save",
         "item-create",

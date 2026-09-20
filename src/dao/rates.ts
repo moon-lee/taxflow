@@ -52,6 +52,10 @@ export async function updateRate(
   await finance.db.table(TABLE).update({ id }, patch);
 }
 
+export async function deleteRate(finance: any, id: number): Promise<void> {
+  await finance.db.table(TABLE).delete({ id });
+}
+
 export async function copyRates(
   finance: any,
   fromYear: string,

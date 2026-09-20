@@ -3,7 +3,7 @@ import { sharedStyles } from '../styles/shared-styles.js';
 import { ExtensionLogger } from 'finance-logger';
 import { upsertEntry } from '../dao/entries.js';
 import { saveSpouse } from '../dao/spouse.js';
-import { saveRate, updateRate, copyRates } from '../dao/rates.js';
+import { saveRate, updateRate, deleteRate, copyRates } from '../dao/rates.js';
 import { createItemType, setItemActive } from '../dao/items.js';
 import { lockYear, unlockYear } from '../dao/years.js';
 
@@ -118,6 +118,12 @@ export class TaxOrchestrator extends Base {
       guard(async (d) => {
         if (d.id) await updateRate(this.finance, d.id, d.patch);
         else await saveRate(this.finance, d.input);
+      }),
+    );
+    this.addEventListener(
+      'rates-delete',
+      guard(async (d) => {
+        if (d.id) await deleteRate(this.finance, d.id);
       }),
     );
     this.addEventListener(

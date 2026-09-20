@@ -64,15 +64,19 @@ export async function loadEstimate(
       const ytd = (await finance.services?.invoke(
         'pay',
         'getYearToDateSummary',
-        {},
+        ['07-01', undefined, yearKey],
       )) as {
         gross: number;
-        withheld: number;
+        payg?: number;
+        withheld?: number;
+        payg_withholding?: number;
       } | null;
       if (ytd && Number.isFinite(Number(ytd.gross))) {
         wages = {
           amount: Number(ytd.gross),
-          withheld: Number(ytd.withheld ?? 0),
+          withheld: Number(
+            ytd.payg ?? ytd.withheld ?? ytd.payg_withholding ?? 0,
+          ),
         };
       }
     } catch {

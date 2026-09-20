@@ -29,6 +29,25 @@ export const taxStyles = css`
   .cards > tax-reorder-modal {
     display: contents;
   }
+  /* Notice/error rows are direct grid children: span the full row so dense
+     packing can't backfill a small card next to them and scramble the order. */
+  .cards > p {
+    grid-column: 1 / -1;
+  }
+  /* Locked-year banner. */
+  .locked-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 8px 12px;
+    background: var(--ff-warning-bg, #3a2e0a);
+    border: 1px solid var(--ff-warning, #cca700);
+    border-radius: var(--ff-radius-md, 4px);
+    color: var(--ff-warning-text, #ffd866);
+    font-size: var(--ff-font-sm, 12px);
+    font-weight: 600;
+  }
   /* Item-types 3-panel: Income spans 2 rows (left), Deductions + Offsets stack on the right. */
   .cards .section.income-full {
     grid-row: span 2;
@@ -133,19 +152,12 @@ export const taxStyles = css`
   }
   .tax-row.return-positive {
     background: var(--ff-bg-subpanel, #2a2a2a);
-    border: 1px solid var(--ff-success, #4ec9b0);
-    border-radius: var(--ff-radius-md, 4px);
-  }
-  .tax-row.return-positive > span {
-    padding: 0 10px;
   }
   .tax-row.return-positive .num {
     color: var(--ff-success, #4ec9b0);
   }
   .tax-row.return-negative {
     background: var(--ff-warning-bg, #3a2e0a);
-    border: 1px solid var(--ff-warning, #cca700);
-    border-radius: var(--ff-radius-md, 4px);
   }
   .tax-row.return-negative .num {
     color: var(--ff-warning-text, #ffd866);
@@ -303,7 +315,17 @@ export const taxStyles = css`
     align-self: end;
   }
   .tax-form.inline.single {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+  .tax-form.inline.single .btn-primary {
+    grid-column: 2;
+    justify-self: end;
+    align-self: end;
+  }
+  .tax-form.inline.single .form-actions {
+    grid-column: 2;
+    align-self: end;
   }
   .tax-form.inline .btn-primary {
     grid-column: 3;
@@ -391,7 +413,7 @@ export const taxStyles = css`
   .tax-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: var(--ff-font-md, 13px);
+    font-size: var(--ff-font-base, 14px);
   }
   .tax-table th {
     text-align: left;
@@ -407,6 +429,8 @@ export const taxStyles = css`
     padding: 8px 12px;
     border-bottom: 1px solid var(--ff-border, #3e3e3e);
     color: var(--ff-text, #d4d4d4);
+    font-size: var(--ff-font-base, 14px);
+    font-variant-numeric: tabular-nums;
   }
   .tax-table td.num,
   .tax-table th.num {
@@ -475,6 +499,72 @@ export const taxStyles = css`
     outline: none;
     cursor: pointer;
   }
+  /* Medicare footer inside the brackets card. */
+  .medicare-footer {
+    margin-top: var(--ff-space-3, 12px);
+    padding-top: var(--ff-space-3, 12px);
+    border-top: 1px solid var(--ff-border, #3e3e3e);
+  }
+  /* Compact one-line rate forms (brackets / MLS tiers): fields + buttons in a row. */
+  .tax-form.compact-line {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+  }
+  .tax-form.compact-line > label {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .tax-form.compact-line .form-actions {
+    flex: 0 0 auto;
+    align-items: center;
+  }
+  /* Toggle switch in section headers (e.g. Forecast show/hide). */
+  .section-header .pill {
+    margin-left: 8px;
+  }
+  .section-header .switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+  .section-header .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .section-header .switch .slider {
+    position: absolute;
+    inset: 0;
+    background: var(--ff-bg-input, #3c3c3c);
+    border: 1px solid var(--ff-border, #3e3e3e);
+    border-radius: 999px;
+    transition: background 0.15s ease;
+  }
+  .section-header .switch .slider::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    left: 2px;
+    top: 2px;
+    background: var(--ff-text-muted, #858585);
+    border-radius: 50%;
+    transition:
+      transform 0.15s ease,
+      background 0.15s ease;
+  }
+  .section-header .switch input:checked + .slider {
+    background: var(--ff-accent, #007acc);
+    border-color: var(--ff-accent, #007acc);
+  }
+  .section-header .switch input:checked + .slider::before {
+    transform: translateX(16px);
+    background: #fff;
+  }
   @media (max-width: 640px) {
     .cards {
       grid-template-columns: 1fr;
@@ -508,6 +598,9 @@ export const taxStyles = css`
     .tax-form.inline.one-row .ghost {
       grid-column: auto;
       justify-self: start;
+    }
+    .tax-form.compact-line {
+      flex-wrap: wrap;
     }
     .kpi-row {
       flex-wrap: wrap;
