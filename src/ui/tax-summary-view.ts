@@ -562,6 +562,7 @@ export class TaxSummaryView extends Base {
           <button
             class="filter-btn"
             @click=${() => {
+              this.emit('navigate-view', { view: 'tax-items' });
               void this.finance?.ui?.requestMount('taxflow', {
                 view: 'tax-items',
               });

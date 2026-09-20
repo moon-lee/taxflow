@@ -143,6 +143,19 @@ export class TaxOrchestrator extends Base {
         logger.warn('pay-refresh bridge failed', err);
       }
     });
+    this.addEventListener('navigate-view', (e: Event) => {
+      // In-panel navigation: requestMount is a noop in panels, so switch
+      // the child view directly instead of asking the host to remount.
+      const detail = (e as CustomEvent).detail ?? {};
+      const view = detail?.view;
+      if (
+        view === 'tax-summary' ||
+        view === 'tax-rates' ||
+        view === 'tax-items'
+      ) {
+        this.navigate(view);
+      }
+    });
     this.addEventListener(
       'year-copy',
       guard(async (d) => {

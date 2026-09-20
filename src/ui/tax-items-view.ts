@@ -87,6 +87,7 @@ export class TaxItemsView extends Base {
   }
 
   private back(): void {
+    this.emit('navigate-view', { view: 'tax-summary' });
     void this.finance?.ui?.requestMount('taxflow', { view: 'tax-summary' });
   }
 
