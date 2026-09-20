@@ -173,66 +173,68 @@ export class TaxItemsView extends Base {
   override render(): unknown {
     if (typeof HTMLElement === 'undefined') return html``;
     return html`
-      <div class="topbar">
-        <span class="crumb-current">Item Types</span>
-        <div class="spacer"></div>
-        <button class="filter-btn" @click=${() => this.toggleNewItemType()}>
-          New Item Type
-        </button>
-        <button class="filter-btn" @click=${() => this.back()}>Back</button>
-      </div>
-      <div class="view-container">
-        <div class="view-container-inner cards">
-          ${this.error ? html`<p class="field-error">Error: ${this.error}</p>` : ''}
-          ${this.renderGroup('income', 'Income')}
-          ${this.renderGroup('deduction', 'Deduction')}
-          ${this.renderGroup('offset', 'Offset')}
-          ${
-            this.showNewItemType
-              ? html`<div class="section span">
-                  <div class="section-header">
-                    <h3 class="section-title">New item type</h3>
-                  </div>
-                  ${
-                    this.locked
-                      ? html`<p>
-                          Locked — unlock ${this.yearKey} to add item types.
-                        </p>`
-                      : html`<form
-                          class="tax-form"
-                          @submit=${(e: Event) => this.createItem(e)}
-                        >
-                          <label
-                            >Label<input
-                              name="label"
-                              placeholder="Bank fees"
-                              required
-                          /></label>
-                          <label
-                            >Group
-                            <select name="item_group">
-                              <option value="income">income</option>
-                              <option value="deduction">deduction</option>
-                              <option value="offset">offset</option>
-                            </select></label
+      <div class="view-scroll">
+        <div class="topbar">
+          <span class="crumb-current">Item Types</span>
+          <div class="spacer"></div>
+          <button class="filter-btn" @click=${() => this.toggleNewItemType()}>
+            New Item Type
+          </button>
+          <button class="filter-btn" @click=${() => this.back()}>Back</button>
+        </div>
+        <div class="view-container">
+          <div class="view-container-inner cards">
+            ${this.error ? html`<p class="field-error">Error: ${this.error}</p>` : ''}
+            ${this.renderGroup('income', 'Income')}
+            ${this.renderGroup('deduction', 'Deduction')}
+            ${this.renderGroup('offset', 'Offset')}
+            ${
+              this.showNewItemType
+                ? html`<div class="section span">
+                    <div class="section-header">
+                      <h3 class="section-title">New item type</h3>
+                    </div>
+                    ${
+                      this.locked
+                        ? html`<p>
+                            Locked — unlock ${this.yearKey} to add item types.
+                          </p>`
+                        : html`<form
+                            class="tax-form"
+                            @submit=${(e: Event) => this.createItem(e)}
                           >
-                          <div class="form-actions">
-                            <button class="btn-primary" type="submit">
-                              Save
-                            </button>
-                            <button
-                              class="ghost"
-                              type="button"
-                              @click=${() => this.cancelNewItemType()}
+                            <label
+                              >Label<input
+                                name="label"
+                                placeholder="Bank fees"
+                                required
+                            /></label>
+                            <label
+                              >Group
+                              <select name="item_group">
+                                <option value="income">income</option>
+                                <option value="deduction">deduction</option>
+                                <option value="offset">offset</option>
+                              </select></label
                             >
-                              Cancel
-                            </button>
-                          </div>
-                        </form>`
-                  }
-                </div>`
-              : ''
-          }
+                            <div class="form-actions">
+                              <button class="btn-primary" type="submit">
+                                Save
+                              </button>
+                              <button
+                                class="ghost"
+                                type="button"
+                                @click=${() => this.cancelNewItemType()}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </form>`
+                    }
+                  </div>`
+                : ''
+            }
+          </div>
         </div>
       </div>
     `;

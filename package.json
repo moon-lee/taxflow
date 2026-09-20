@@ -1,13 +1,13 @@
 {
   "name": "taxflow",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "main": "src/main.ts",
   "financeExtension": {
     "id": "taxflow",
     "displayName": "Tax Flow",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "description": "Australian income tax summary with per-year rates",
     "themeColor": "#FFEB3B",
     "activationEvents": [
@@ -30,6 +30,10 @@
         {
           "id": "taxflow.show-rates",
           "title": "Tax Rates"
+        },
+        {
+          "id": "taxflow.refresh-pay",
+          "title": "Refresh salary data"
         }
       ],
       "navigation": [
@@ -59,13 +63,15 @@
       ],
       "allowedCommands": [
         "taxflow.show-summary",
-        "taxflow.show-rates"
+        "taxflow.show-rates",
+        "taxflow.refresh-pay"
       ],
       "allowedUiEvents": [
         "year-copy",
         "year-lock",
         "rates-save",
         "rates-delete",
+        "pay-refresh",
         "income-save",
         "deduction-save",
         "item-create",

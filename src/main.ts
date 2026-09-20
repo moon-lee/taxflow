@@ -15,6 +15,46 @@ const openView =
     await finance.ui?.requestMount('taxflow', { view: childTag });
   };
 
+interface PayYtd {
+  gross: number;
+  withheld: number;
+  count: number;
+  yearKey: string;
+}
+
+/** Host-side only: panel services.invoke is a noop, so the panel can never
+ * reach the pay service directly. Fetch here (host has the real bridge) and
+ * push the result to the panel, mirroring the dashboard refresh pattern. */
+async function fetchPayYtd(
+  finance: FinanceApi,
+  yearKey: string,
+): Promise<PayYtd | null> {
+  try {
+    const ytd = (await finance.services?.invoke('pay', 'getYearToDateSummary', [
+      '07-01',
+      undefined,
+      yearKey,
+    ])) as {
+      gross: number;
+      payg?: number;
+      withheld?: number;
+      payg_withholding?: number;
+      count?: number;
+    } | null;
+    const gross = Number(ytd?.gross);
+    if (!ytd || !Number.isFinite(gross)) return null;
+    return {
+      gross,
+      withheld: Number(ytd.payg ?? ytd.withheld ?? ytd.payg_withholding ?? 0),
+      count: Number(ytd.count ?? 0),
+      yearKey,
+    };
+  } catch (e) {
+    logger.error('fetchPayYtd failed', e);
+    return null;
+  }
+}
+
 export async function activate(
   finance: FinanceApi,
   ctx: { viewId?: string } & Record<string, unknown> = {},
@@ -25,6 +65,29 @@ export async function activate(
   );
   finance.commands.registerCommand('taxflow.show-rates', 'Tax Rates', () =>
     openView(finance, 'tax-rates')(),
+  );
+  finance.commands.registerCommand(
+    'taxflow.refresh-pay',
+    'Refresh salary data',
+    async (...args: unknown[]) => {
+      const first = args[0] as { yearKey?: unknown } | string | undefined;
+      const yearKey =
+        typeof first === 'string'
+          ? first
+          : typeof first?.yearKey === 'string'
+            ? first.yearKey
+            : undefined;
+      if (!yearKey) return;
+      const payYtd = await fetchPayYtd(finance, yearKey);
+      try {
+        await (finance.ui as any)?.pushData?.('taxflow', {
+          payYtd,
+          payYearKey: yearKey,
+        });
+      } catch (e) {
+        logger.error('push payYtd failed', e);
+      }
+    },
   );
   const { createTaxService } = await import('./services/tax-summary.js');
   finance.services.register('tax', createTaxService(finance as any));

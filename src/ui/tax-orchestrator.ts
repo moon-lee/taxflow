@@ -129,6 +129,20 @@ export class TaxOrchestrator extends Base {
         if (d.id) await deleteRate(this.finance, d.id);
       }),
     );
+    this.addEventListener('pay-refresh', async (e: Event) => {
+      // Panel services.invoke is a noop — ask the host (real bridge) to
+      // fetch pay YTD and push it back via mount-update (dashboard pattern).
+      try {
+        const detail = (e as CustomEvent).detail ?? {};
+        const shell = (globalThis as any)?.financeShell;
+        await shell?.extensions?.executeCommand?.('taxflow.refresh-pay', {
+          yearKey:
+            typeof detail?.yearKey === 'string' ? detail.yearKey : undefined,
+        });
+      } catch (err) {
+        logger.warn('pay-refresh bridge failed', err);
+      }
+    });
     this.addEventListener(
       'year-copy',
       guard(async (d) => {
