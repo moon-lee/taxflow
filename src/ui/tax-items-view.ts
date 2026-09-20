@@ -108,7 +108,7 @@ export class TaxItemsView extends Base {
       input: {
         item_key: itemKey,
         label,
-        group: String(fd.get('group') ?? 'income'),
+        item_group: String(fd.get('item_group') ?? 'income'),
         sort_order: this.types.length + 1,
       },
     });
@@ -144,7 +144,7 @@ export class TaxItemsView extends Base {
         <h3 class="section-title">${title} types</h3>
       </div>
       ${this.types
-        .filter((it) => it.group === group)
+        .filter((it) => it.item_group === group)
         .map(
           (it) =>
             html`<div class="tax-row">
@@ -208,7 +208,7 @@ export class TaxItemsView extends Base {
                           /></label>
                           <label
                             >Group
-                            <select name="group">
+                            <select name="item_group">
                               <option value="income">income</option>
                               <option value="deduction">deduction</option>
                               <option value="offset">offset</option>

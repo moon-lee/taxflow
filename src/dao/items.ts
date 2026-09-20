@@ -4,7 +4,7 @@ export interface ItemTypeRow {
   id: number;
   item_key: string;
   label: string;
-  group: ItemGroup;
+  item_group: ItemGroup;
   sort_order: number;
   is_active: boolean;
 }
@@ -14,57 +14,62 @@ const TABLE = 'taxflow_item_types';
 export const SEED_ITEMS: Array<{
   item_key: string;
   label: string;
-  group: ItemGroup;
+  item_group: ItemGroup;
   sort_order: number;
 }> = [
-  { item_key: 'wages', label: 'Wages', group: 'income', sort_order: 1 },
+  { item_key: 'wages', label: 'Wages', item_group: 'income', sort_order: 1 },
   {
     item_key: 'interest',
     label: 'Gross interest',
-    group: 'income',
+    item_group: 'income',
     sort_order: 2,
   },
-  { item_key: 'dividends', label: 'Dividends', group: 'income', sort_order: 3 },
+  {
+    item_key: 'dividends',
+    label: 'Dividends',
+    item_group: 'income',
+    sort_order: 3,
+  },
   {
     item_key: 'managed-funds',
     label: 'Managed fund distributions',
-    group: 'income',
+    item_group: 'income',
     sort_order: 4,
   },
   {
     item_key: 'capital-gain',
     label: 'Net capital gain',
-    group: 'income',
+    item_group: 'income',
     sort_order: 5,
   },
   {
     item_key: 'foreign-income',
     label: 'Other foreign income',
-    group: 'income',
+    item_group: 'income',
     sort_order: 6,
   },
   {
     item_key: 'work',
     label: 'Work-related expense',
-    group: 'deduction',
+    item_group: 'deduction',
     sort_order: 1,
   },
   {
     item_key: 'div-cost',
     label: 'Dividend deductions',
-    group: 'deduction',
+    item_group: 'deduction',
     sort_order: 2,
   },
   {
     item_key: 'super-personal',
     label: 'Personal super contributions',
-    group: 'deduction',
+    item_group: 'deduction',
     sort_order: 3,
   },
   {
     item_key: 'foreign-offset',
     label: 'Foreign income offset',
-    group: 'offset',
+    item_group: 'offset',
     sort_order: 1,
   },
 ];
@@ -74,7 +79,9 @@ export async function listItemTypes(
   group: ItemGroup,
   includeInactive = false,
 ): Promise<ItemTypeRow[]> {
-  const rows = (await finance.db.table(TABLE).find({ group })) as ItemTypeRow[];
+  const rows = (await finance.db
+    .table(TABLE)
+    .find({ item_group: group })) as ItemTypeRow[];
   const live = includeInactive
     ? rows
     : rows.filter((r) => r.is_active === true);
@@ -86,7 +93,7 @@ export async function createItemType(
   input: {
     item_key: string;
     label: string;
-    group: ItemGroup;
+    item_group: ItemGroup;
     sort_order: number;
   },
 ): Promise<number> {
