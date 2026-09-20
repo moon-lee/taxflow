@@ -120,6 +120,30 @@ export const taxStyles = css`
     border-radius: var(--ff-radius-lg, 6px);
     padding: var(--ff-space-3, 12px) var(--ff-space-2, 8px);
   }
+  .result-card-body {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+    gap: var(--ff-space-4, 16px);
+    align-items: stretch;
+    margin-top: var(--ff-space-3, 12px);
+  }
+  .result-card .hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 100%;
+    padding: var(--ff-space-4, 16px);
+    background: var(--ff-bg-subpanel, #2a2a2a);
+    border: 1px solid var(--ff-border, #3e3e3e);
+    border-radius: var(--ff-radius-lg, 6px);
+  }
+  .result-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: var(--ff-space-2, 8px);
+    align-content: stretch;
+  }
   .hero {
     text-align: center;
     padding: var(--ff-space-4, 16px) 0 var(--ff-space-2, 8px);
@@ -137,7 +161,7 @@ export const taxStyles = css`
     color: var(--ff-danger, #f48771);
   }
   .hero-caption {
-    font-size: var(--ff-font-xs, 11px);
+    font-size: var(--ff-font-sm, 12px);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--ff-text-muted, #858585);
@@ -146,6 +170,7 @@ export const taxStyles = css`
   .kpi-row {
     display: flex;
     gap: var(--ff-space-2, 8px);
+    margin-top: var(--ff-space-3, 12px);
   }
   .kpi {
     flex: 1 1 0;
@@ -153,7 +178,7 @@ export const taxStyles = css`
     padding: var(--ff-space-2, 8px) 0;
   }
   .kpi-label {
-    font-size: var(--ff-font-xs, 11px);
+    font-size: var(--ff-font-sm, 12px);
     text-transform: uppercase;
     letter-spacing: 0.3px;
     color: var(--ff-text-muted, #858585);
@@ -214,6 +239,28 @@ export const taxStyles = css`
   .tax-form.inline {
     grid-template-columns: 1fr 1fr auto auto;
     align-items: end;
+  }
+  .tax-form.inline.one-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+    align-items: end;
+  }
+  .tax-form.inline.one-row input,
+  .tax-form.inline.one-row .btn-primary,
+  .tax-form.inline.one-row .ghost {
+    height: 34px;
+    box-sizing: border-box;
+  }
+  .tax-form.inline.one-row .form-actions {
+    display: contents;
+  }
+  .tax-form.inline.one-row .btn-primary {
+    grid-column: 3;
+    justify-self: end;
+  }
+  .tax-form.inline.one-row .ghost {
+    grid-column: 4;
+    justify-self: end;
+    align-self: end;
   }
   .tax-form.inline.single {
     grid-template-columns: 1fr;
@@ -410,8 +457,29 @@ export const taxStyles = css`
     .tax-form.inline {
       grid-template-columns: 1fr;
     }
+    .tax-form.inline.one-row {
+      grid-template-columns: 1fr;
+    }
+    .tax-form.inline.one-row .form-actions {
+      grid-column: 1 / -1;
+      display: flex;
+    }
+    .tax-form.inline.one-row .btn-primary,
+    .tax-form.inline.one-row .ghost {
+      grid-column: auto;
+      justify-self: start;
+    }
     .kpi-row {
       flex-wrap: wrap;
+    }
+    .result-card-body {
+      grid-template-columns: 1fr;
+    }
+    .result-card .hero {
+      min-height: 0;
+    }
+    .result-kpis {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
 `;

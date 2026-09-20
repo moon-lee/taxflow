@@ -366,7 +366,7 @@ export class TaxSummaryView extends Base {
         ? 'Wages'
         : (this.incomeTypes.find((it) => it.item_key === key)?.label ?? key);
     return html`<form
-      class="tax-form inline"
+      class="tax-form inline one-row"
       @submit=${(e: Event) => this.saveIncome(key, e)}
     >
       <label
@@ -403,7 +403,7 @@ export class TaxSummaryView extends Base {
     const label =
       this.deductionTypes.find((dt) => dt.item_key === key)?.label ?? key;
     return html`<form
-      class="tax-form inline"
+      class="tax-form inline one-row"
       @submit=${(e: Event) => this.saveDeduction(key, e)}
     >
       <label
@@ -687,32 +687,44 @@ export class TaxSummaryView extends Base {
                 ${this.years.map((y) => html`<option value=${y.year_key}>${y.year_key}${y.is_locked ? ' (locked)' : ''}</option>`)}
               </select>
             </div>
-            <div class="kpi-row">
-              <div class="kpi">
-                <div class="kpi-label">Taxable</div>
-                <div class="kpi-value">${aud(t.taxable)}</div>
+            <div class="result-card-body">
+              <div class="result-kpis">
+                <div class="kpi">
+                  <div class="kpi-label">Taxable Income</div>
+                  <div class="kpi-value">${aud(t.taxable)}</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">Withheld</div>
+                  <div class="kpi-value">${aud(t.withheld)}</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">Tax rate</div>
+                  <div class="kpi-value">
+                    ${
+                      t.taxable > 0
+                        ? `${((b.tax / t.taxable) * 100).toFixed(1)}%`
+                        : '0.0%'
+                    }
+                  </div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">Tax</div>
+                  <div class="kpi-value">${aud(b.tax)}</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">Medicare levy</div>
+                  <div class="kpi-value">${aud(b.medicare)}</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">Medicare levy surcharge</div>
+                  <div class="kpi-value">${aud(b.mls)}</div>
+                </div>
               </div>
-              <div class="kpi">
-                <div class="kpi-label">Tax</div>
-                <div class="kpi-value">${aud(b.tax)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">Medicare</div>
-                <div class="kpi-value">${aud(b.medicare)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">Surcharge</div>
-                <div class="kpi-value">${aud(b.mls)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">Withheld</div>
-                <div class="kpi-value">${aud(t.withheld)}</div>
-              </div>
-            </div>
-            <div class="hero ${b.result >= 0 ? 'refund' : 'owed'}">
-              <div class="hero-value">${aud(Math.abs(b.result))}</div>
-              <div class="hero-caption">
-                ${b.result >= 0 ? 'Refund' : 'Amount owed'}
+              <div class="hero ${b.result >= 0 ? 'refund' : 'owed'}">
+                <div class="hero-value">${aud(Math.abs(b.result))}</div>
+                <div class="hero-caption">
+                  ${b.result >= 0 ? 'Refund' : 'Amount owed'}
+                </div>
               </div>
             </div>
           </div>
@@ -750,12 +762,15 @@ export class TaxSummaryView extends Base {
               <label
                 >Extra super $
                 <input
-                  type="number"
-                  min="0"
-                  .value=${String(this.topUp)}
+                  type="text"
+                  inputmode="decimal"
+                  .value=${grouped(this.topUp)}
+                  @focus=${(e: Event) => this.moneyFocus(e)}
+                  @blur=${(e: Event) => this.moneyBlur(e)}
                   @input=${(e: Event) => {
-                    this.topUp =
-                      Number((e.target as HTMLInputElement).value) || 0;
+                    this.topUp = rawNumber(
+                      (e.target as HTMLInputElement).value,
+                    );
                     (this as any).requestUpdate();
                   }}
               /></label>
