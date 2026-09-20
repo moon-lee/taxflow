@@ -26,6 +26,7 @@ export class TaxItemsView extends Base {
   incomeKeys: string[] = [];
   deductionKeys: string[] = [];
   error = '';
+  showNewItemType = false;
 
   async setFinance(f: any): Promise<void> {
     this.finance = f;
@@ -112,6 +113,24 @@ export class TaxItemsView extends Base {
       },
     });
     (e.target as HTMLFormElement).reset();
+    this.showNewItemType = false;
+    (this as any).requestUpdate?.();
+  }
+
+  private toggleNewItemType(): void {
+    this.showNewItemType = !this.showNewItemType;
+    if (!this.showNewItemType) {
+      const form = this.renderRoot?.querySelector(
+        '.tax-form',
+      ) as HTMLFormElement | null;
+      form?.reset();
+    }
+    (this as any).requestUpdate?.();
+  }
+
+  private cancelNewItemType(): void {
+    this.showNewItemType = false;
+    (this as any).requestUpdate?.();
   }
 
   private deactivateItem(itemKey: string): void {
@@ -155,6 +174,9 @@ export class TaxItemsView extends Base {
       <div class="topbar">
         <span class="crumb-current">Item Types</span>
         <div class="spacer"></div>
+        <button class="filter-btn" @click=${() => this.toggleNewItemType()}>
+          New Item Type
+        </button>
         <button class="filter-btn" @click=${() => this.back()}>Back</button>
       </div>
       <div class="view-container">
@@ -163,39 +185,52 @@ export class TaxItemsView extends Base {
           ${this.renderGroup('income', 'Income')}
           ${this.renderGroup('deduction', 'Deduction')}
           ${this.renderGroup('offset', 'Offset')}
-          <div class="section span">
-            <div class="section-header">
-              <h3 class="section-title">New item type</h3>
-            </div>
-            ${
-              this.locked
-                ? html`<p>
-                    Locked — unlock ${this.yearKey} to add item types.
-                  </p>`
-                : html`<form
-                    class="tax-form"
-                    @submit=${(e: Event) => this.createItem(e)}
-                  >
-                    <label
-                      >Label<input
-                        name="label"
-                        placeholder="Bank fees"
-                        required
-                    /></label>
-                    <label
-                      >Group
-                      <select name="group">
-                        <option value="income">income</option>
-                        <option value="deduction">deduction</option>
-                        <option value="offset">offset</option>
-                      </select></label
-                    >
-                    <button class="btn-primary" type="submit">
-                      Add item type
-                    </button>
-                  </form>`
-            }
-          </div>
+          ${
+            this.showNewItemType
+              ? html`<div class="section span">
+                  <div class="section-header">
+                    <h3 class="section-title">New item type</h3>
+                  </div>
+                  ${
+                    this.locked
+                      ? html`<p>
+                          Locked — unlock ${this.yearKey} to add item types.
+                        </p>`
+                      : html`<form
+                          class="tax-form"
+                          @submit=${(e: Event) => this.createItem(e)}
+                        >
+                          <label
+                            >Label<input
+                              name="label"
+                              placeholder="Bank fees"
+                              required
+                          /></label>
+                          <label
+                            >Group
+                            <select name="group">
+                              <option value="income">income</option>
+                              <option value="deduction">deduction</option>
+                              <option value="offset">offset</option>
+                            </select></label
+                          >
+                          <div class="form-actions">
+                            <button class="btn-primary" type="submit">
+                              Save
+                            </button>
+                            <button
+                              class="ghost"
+                              type="button"
+                              @click=${() => this.cancelNewItemType()}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>`
+                  }
+                </div>`
+              : ''
+          }
         </div>
       </div>
     `;
