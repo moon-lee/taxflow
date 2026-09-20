@@ -46,8 +46,8 @@ export async function loadEstimate(
       getSpouse(finance, yearKey),
       getRates(finance, yearKey),
     ]);
-    const incomeRows = entries.filter((r) => r.kind === 'income');
-    const deductionRows = entries.filter((r) => r.kind === 'deduction');
+    const incomeRows = entries.filter((r) => r.entry_kind === 'income');
+    const deductionRows = entries.filter((r) => r.entry_kind === 'deduction');
     if (incomeRows.length === 0 && deductionRows.length === 0) return null;
     const typedWages = (
       incomeRows as Array<{

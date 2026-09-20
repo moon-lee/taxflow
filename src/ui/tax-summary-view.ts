@@ -101,10 +101,10 @@ export class TaxSummaryView extends Base {
           listItemTypes(this.finance, 'deduction'),
         ]);
       const incomeEntries = (entries as EntryRow[]).filter(
-        (r) => r.kind === 'income',
+        (r) => r.entry_kind === 'income',
       );
       const deductionEntries = (entries as EntryRow[]).filter(
-        (r) => r.kind === 'deduction',
+        (r) => r.entry_kind === 'deduction',
       );
       this.income = incomeEntries.map((r) => ({
         item_key: r.item_key,

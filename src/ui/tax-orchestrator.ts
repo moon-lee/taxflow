@@ -98,13 +98,16 @@ export class TaxOrchestrator extends Base {
     this.addEventListener(
       'income-save',
       guard(async (d) => {
-        await upsertEntry(this.finance, { kind: 'income', ...d.input });
+        await upsertEntry(this.finance, { entry_kind: 'income', ...d.input });
       }),
     );
     this.addEventListener(
       'deduction-save',
       guard(async (d) => {
-        await upsertEntry(this.finance, { kind: 'deduction', ...d.input });
+        await upsertEntry(this.finance, {
+          entry_kind: 'deduction',
+          ...d.input,
+        });
       }),
     );
     this.addEventListener(

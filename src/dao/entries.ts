@@ -4,7 +4,7 @@ export interface EntryRow {
   id: number;
   year_key: string;
   item_key: string;
-  kind: EntryKind;
+  entry_kind: EntryKind;
   label: string | null;
   amount: number;
   withheld: number;
@@ -17,10 +17,10 @@ const TABLE = 'taxflow_entries';
 export async function listEntries(
   finance: any,
   yearKey: string,
-  kind?: EntryKind,
+  entryKind?: EntryKind,
 ): Promise<EntryRow[]> {
   const filter: Record<string, unknown> = { year_key: yearKey };
-  if (kind) filter.kind = kind;
+  if (entryKind) filter.entry_kind = entryKind;
   return (await finance.db.table(TABLE).find(filter)) as EntryRow[];
 }
 
@@ -30,7 +30,7 @@ export async function upsertEntry(
   input: {
     year_key: string;
     item_key: string;
-    kind: EntryKind;
+    entry_kind: EntryKind;
     label?: string | null;
     amount?: number;
     withheld?: number;
@@ -41,7 +41,7 @@ export async function upsertEntry(
   const rows = (await finance.db.table(TABLE).find({
     year_key: input.year_key,
     item_key: input.item_key,
-    kind: input.kind,
+    entry_kind: input.entry_kind,
   })) as EntryRow[];
   const defaults = {
     label: null,
@@ -58,7 +58,7 @@ export async function upsertEntry(
       if (
         k !== 'year_key' &&
         k !== 'item_key' &&
-        k !== 'kind' &&
+        k !== 'entry_kind' &&
         v !== undefined
       )
         patch[k] = v;
@@ -72,7 +72,7 @@ export async function createEntry(
   input: {
     year_key: string;
     item_key: string;
-    kind: EntryKind;
+    entry_kind: EntryKind;
     label?: string | null;
     amount?: number;
     withheld?: number;

@@ -57,13 +57,15 @@ export class TaxItemsView extends Base {
         ...(deductionTypes as ItemTypeRow[]),
         ...(offsetTypes as ItemTypeRow[]),
       ];
-      this.incomeKeys = (entries as Array<{ kind: string; item_key: string }>)
-        .filter((r) => r.kind === 'income')
+      this.incomeKeys = (
+        entries as Array<{ entry_kind: string; item_key: string }>
+      )
+        .filter((r) => r.entry_kind === 'income')
         .map((r) => r.item_key);
       this.deductionKeys = (
-        entries as Array<{ kind: string; item_key: string }>
+        entries as Array<{ entry_kind: string; item_key: string }>
       )
-        .filter((r) => r.kind === 'deduction')
+        .filter((r) => r.entry_kind === 'deduction')
         .map((r) => r.item_key);
       this.error = '';
     } catch (e: any) {
