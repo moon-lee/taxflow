@@ -595,7 +595,7 @@ export class TaxSummaryView extends Base {
                     >Wages
                     ${
                       Number(this.payYtd?.count ?? 0) > 0
-                        ? `(live · ${this.payYtd?.count} payslips)`
+                        ? `(live·${this.payYtd?.count})`
                         : '(typed)'
                     }</span
                   ><span class="num">${aud(w.amount)}</span
