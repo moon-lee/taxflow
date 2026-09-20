@@ -535,6 +535,10 @@ export class TaxSummaryView extends Base {
     }
   }
 
+  private toggleLock(): void {
+    this.emit('year-lock', { yearKey: this.yearKey, locked: this.locked });
+  }
+
   override render(): unknown {
     if (typeof HTMLElement === 'undefined') return html``;
     const t = this.totals();
@@ -574,7 +578,13 @@ export class TaxSummaryView extends Base {
         <div class="view-container">
           <div class="view-container-inner cards">
             ${this.error ? html`<p class="field-error">Error: ${this.error}</p>` : ''}
-            ${this.locked ? html`<p>Locked — figures are read-only.</p>` : ''}
+            ${
+              this.locked
+                ? html`<p class="locked-banner">
+                    🔒 Locked — figures are read-only. Unlock to edit.
+                  </p>`
+                : ''
+            }
             <div class="section span" style="order:${this.orderOf('income')}">
               <div class="section-header">
                 <h3 class="section-title">Taxable Income</h3>
@@ -777,16 +787,27 @@ export class TaxSummaryView extends Base {
             >
               <div class="section-header">
                 <h3 class="section-title">Est. Tax Return</h3>
-                <select
-                  class="year-badge"
-                  .value=${this.yearKey}
-                  @change=${(e: Event) => {
-                    this.yearKey = (e.target as HTMLSelectElement).value;
-                    void this.load();
-                  }}
+                <span class="pill ${this.locked ? 'locked' : 'open'}"
+                  >${this.yearKey} ${this.locked ? 'locked' : 'open'}</span
                 >
-                  ${this.years.map((y) => html`<option value=${y.year_key}>${y.year_key}${y.is_locked ? ' (locked)' : ''}</option>`)}
-                </select>
+                <div class="header-controls">
+                  <select
+                    class="year-badge"
+                    .value=${this.yearKey}
+                    @change=${(e: Event) => {
+                      this.yearKey = (e.target as HTMLSelectElement).value;
+                      void this.load();
+                    }}
+                  >
+                    ${this.years.map((y) => html`<option value=${y.year_key}>${y.year_key}${y.is_locked ? ' (locked)' : ''}</option>`)}
+                  </select>
+                  <button
+                    class="filter-btn ${this.locked ? 'locked' : ''}"
+                    @click=${() => this.toggleLock()}
+                  >
+                    ${this.locked ? 'Unlock' : 'Lock'}
+                  </button>
+                </div>
               </div>
               <div class="result-card-body">
                 <div class="result-kpis">
