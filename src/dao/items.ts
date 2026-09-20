@@ -1,3 +1,5 @@
+import { asBool } from '../utils/bool.js';
+
 export type ItemGroup = 'income' | 'deduction' | 'offset';
 
 export interface ItemTypeRow {
@@ -79,12 +81,10 @@ export async function listItemTypes(
   group: ItemGroup,
   includeInactive = false,
 ): Promise<ItemTypeRow[]> {
-  const rows = (await finance.db
-    .table(TABLE)
-    .find({ item_group: group })) as ItemTypeRow[];
-  const live = includeInactive
-    ? rows
-    : rows.filter((r) => r.is_active === true);
+  const rows = (
+    (await finance.db.table(TABLE).find({ item_group: group })) as ItemTypeRow[]
+  ).map((r) => ({ ...r, is_active: asBool(r.is_active) }));
+  const live = includeInactive ? rows : rows.filter((r) => r.is_active);
   return live.slice().sort((a, b) => a.sort_order - b.sort_order);
 }
 

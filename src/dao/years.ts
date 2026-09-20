@@ -1,3 +1,5 @@
+import { asBool } from '../utils/bool.js';
+
 export interface YearRow {
   id: number;
   year_key: string;
@@ -9,6 +11,7 @@ const TABLE = 'taxflow_years';
 export async function listYears(finance: any): Promise<YearRow[]> {
   const rows = (await finance.db.table(TABLE).find({})) as YearRow[];
   return rows
+    .map((r) => ({ ...r, is_locked: asBool(r.is_locked) }))
     .slice()
     .sort((a, b) => String(a.year_key).localeCompare(String(b.year_key)));
 }

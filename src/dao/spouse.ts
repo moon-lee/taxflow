@@ -1,3 +1,5 @@
+import { asBool } from '../utils/bool.js';
+
 export interface SpouseRow {
   id: number;
   year_key: string;
@@ -20,7 +22,8 @@ export async function getSpouse(
   const rows = (await finance.db
     .table(TABLE)
     .find({ year_key: yearKey })) as SpouseRow[];
-  return rows[0] ?? null;
+  const row = rows[0] ?? null;
+  return row ? { ...row, has_cover: asBool(row.has_cover) } : null;
 }
 
 export async function saveSpouse(
